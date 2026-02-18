@@ -1,0 +1,265 @@
+============================================================
+PROJECT TEMPLATE – ANDROID HEADLESS VOIP SDK
+(Linphone + Asterisk)
+============================================================
+
+1. PROJECT OVERVIEW
+------------------------------------------------------------
+
+Project Name:
+Android Headless VoIP SDK
+
+Goal:
+Membangun SDK Android berbasis Kotlin untuk koneksi SIP ke
+Asterisk menggunakan Linphone.
+SDK bersifat headless (tanpa UI) dan reusable untuk aplikasi lain.
+
+Success Criteria:
+[ ] Bisa register SIP
+[ ] Bisa outgoing call
+[ ] Bisa menerima incoming call
+[ ] StateFlow stabil
+[ ] Tidak crash saat background
+[ ] Bisa publish sebagai AAR / Maven
+
+
+============================================================
+2. SCOPE
+============================================================
+
+IN SCOPE:
+- SIP registration
+- Outgoing call
+- Incoming call
+- Call state observer
+- Audio management
+- Foreground service
+- Auto reconnect network
+
+OUT OF SCOPE:
+- Video call
+- UI screen
+- Call transfer
+- Multi-call
+
+
+============================================================
+3. ARCHITECTURE BLUEPRINT
+============================================================
+
+Module Structure:
+
+:voip-sdk-core
+:voip-sdk-linphone
+:voip-sdk-service
+
+
+Module Responsibility:
+
+voip-sdk-core:
+- Public API
+- State machine
+- Repository
+- Error mapping
+
+voip-sdk-linphone:
+- Core initialization
+- CoreListener
+- Account setup
+- Call state mapping
+
+voip-sdk-service:
+- Foreground service
+- Notification
+- Audio focus
+- Network monitoring
+
+
+============================================================
+4. CALL STATE MACHINE
+============================================================
+
+STATE FLOW:
+
+IDLE
+  ↓
+REGISTERING
+  ↓
+REGISTERED
+  ↓
+CALLING
+  ↓
+RINGING
+  ↓
+CONNECTED
+  ↓
+ACTIVE
+  ↓
+HOLD
+  ↓
+DISCONNECTED
+  ↓
+IDLE
+
+
+SDK State Model:
+
+sealed class CallState {
+    object Idle
+    object Calling
+    object Ringing
+    object Connected
+    object Active
+    object Hold
+    object Disconnected
+    data class Error(val reason: String)
+}
+
+
+============================================================
+5. SEQUENCE FLOW
+============================================================
+
+REGISTER FLOW:
+
+App
+→ VoipSdk.initialize()
+→ Linphone Core start
+→ Account config
+→ Register to server
+→ Emit RegistrationState
+
+
+OUTGOING CALL FLOW:
+
+App
+→ startCall()
+→ Linphone invite()
+→ Asterisk
+→ Remote device
+→ Callback state
+→ Emit StateFlow
+
+
+INCOMING CALL FLOW:
+
+Linphone listener
+→ IncomingReceived
+→ Emit incoming event
+→ Host app decide accept/reject
+→ acceptCall()
+
+
+============================================================
+6. PUBLIC API CONTRACT
+============================================================
+
+VoipSdk.initialize(context)
+
+VoipSdk.login(username, password, domain)
+VoipSdk.logout()
+
+VoipSdk.startCall(destination)
+VoipSdk.acceptCall()
+VoipSdk.rejectCall()
+VoipSdk.endCall()
+
+VoipSdk.toggleMute()
+VoipSdk.toggleSpeaker()
+
+VoipSdk.observeCallState(): StateFlow<CallState>
+VoipSdk.observeRegistrationState(): StateFlow<RegistrationState>
+VoipSdk.observeIncomingCall(): Flow<IncomingCallEvent>
+
+
+============================================================
+7. THREADING STRATEGY
+============================================================
+
+- Linphone Core berjalan di dedicated thread
+- Callback diproses di Dispatchers.IO
+- StateFlow emit aman untuk main thread
+- Tidak boleh blocking main thread
+
+
+============================================================
+8. AUDIO STRATEGY
+============================================================
+
+- Request audio focus saat call start
+- Release audio focus saat call end
+- Support speaker toggle
+- Support Bluetooth headset
+- Support wired headset
+- Echo cancellation aktif
+
+
+============================================================
+9. SECURITY CHECKLIST
+============================================================
+
+[ ] TLS support
+[ ] Mask credential di log
+[ ] Tidak expose Core object
+[ ] R8 / Proguard compatible
+
+
+============================================================
+10. TESTING CHECKLIST
+============================================================
+
+UNIT TEST:
+[ ] State machine
+[ ] Error mapping
+
+INTEGRATION TEST:
+[ ] Register ke Asterisk
+[ ] Call antar device
+
+STRESS TEST:
+[ ] 50x call berurutan
+[ ] WiFi → 4G switch
+[ ] App background saat call
+
+
+============================================================
+11. RISK & MITIGATION
+============================================================
+
+Risk: NAT traversal
+Mitigation: STUN configuration
+
+Risk: Android background restriction
+Mitigation: Foreground service
+
+Risk: Audio conflict
+Mitigation: Dedicated audio manager
+
+Risk: Linphone core crash
+Mitigation: Safe wrapper layer
+
+
+============================================================
+12. VERSIONING
+============================================================
+
+Semantic Versioning:
+
+1.0.0 → Initial stable
+1.1.0 → Feature addition
+2.0.0 → Breaking change
+
+
+============================================================
+13. DEV NOTES (LIVING SECTION)
+============================================================
+
+- Catatan bug:
+- Edge case:
+- Behavior aneh Linphone:
+- Improvement ide:
+
+
+============================================================
+END OF DOCUMENT
+============================================================
