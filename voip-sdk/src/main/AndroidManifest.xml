@@ -6,8 +6,11 @@
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
-  <service
-      android:name=".service.VoipForegroundService"
-      android:foregroundServiceType="microphone|connectedDevice"
-      android:exported="false"/>
+  <application>
+    <service
+        android:name=".service.VoipForegroundService"
+        android:foregroundServiceType="microphone|connectedDevice"
+        android:exported="false"/>
+  </application>
+
 </manifest>
