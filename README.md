@@ -1,3 +1,4 @@
+
 # SIPApp - Android Headless VoIP SDK Sample
 
 ## Overview
@@ -18,9 +19,39 @@ SIPApp adalah contoh aplikasi Android yang menggunakan voip-sdk untuk melakukan 
 - `voip-sdk-linphone`: Core initialization, listener, account setup, call state mapping
 - `voip-sdk-service`: Foreground service, notification, audio focus, network monitoring
 
-## Cara Penggunaan voip-sdk
 
-1. **Inisialisasi SDK**
+## Cara Import & Penggunaan voip-sdk
+
+### 1. Tambahkan JitPack ke repositories
+
+Tambahkan di root build.gradle atau settings.gradle:
+
+```gradle
+allprojects {
+	repositories {
+		maven { url 'https://jitpack.io' }
+	}
+}
+```
+
+### 2. Tambahkan dependency voip-sdk
+
+Ganti `username` dan `repo` sesuai GitHub Anda, dan `tag` sesuai versi release/tag:
+
+```gradle
+dependencies {
+	implementation 'com.github.username:repo:tag'
+}
+```
+
+Contoh:
+```gradle
+implementation 'com.github.kharozim:SIPApp:1.0.5'
+```
+
+### 3. Cara Penggunaan voip-sdk
+
+**Inisialisasi SDK**
 
 ```kotlin
 val voipSdk = VoipSdk
@@ -29,32 +60,32 @@ voipSdk.initialize(engine = sipEngine)
 sipEngine.setListener(listener)
 ```
 
-2. **Register SIP**
+**Register SIP**
 
 ```kotlin
 voipSdk.login(username, password, domain)
 ```
 
-3. **Mulai Panggilan**
+**Mulai Panggilan**
 
 ```kotlin
 voipSdk.startCall("sip:tujuan@domain")
 ```
 
-4. **Akhiri Panggilan**
+**Akhiri Panggilan**
 
 ```kotlin
 voipSdk.endCall()
 ```
 
-5. **Toggle Speaker & Mute**
+**Toggle Speaker & Mute**
 
 ```kotlin
 voipSdk.toggleSpeaker()
 voipSdk.toggleMute()
 ```
 
-6. **Pantau Status**
+**Pantau Status**
 
 ```kotlin
 voipSdk.observeCallState() // StateFlow<CallState>
@@ -62,12 +93,15 @@ voipSdk.observeRegistrationState() // StateFlow<RegistrationState>
 voipSdk.observeIncomingCall() // Flow<IncomingCallEvent>
 ```
 
+
 ## Contoh Integrasi di TestCallActivity
 Lihat file `app/src/main/java/com/neo/sipapp/TestCallActivity.kt` untuk contoh implementasi Compose.
+
 
 ## CI/CD
 
 Project ini sudah dilengkapi workflow GitHub Actions untuk build dan test otomatis setiap push/pull request ke branch `main`. Artifact APK debug akan di-upload ke GitHub.
+
 
 ## License
 
