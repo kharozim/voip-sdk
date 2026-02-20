@@ -1,5 +1,8 @@
 package com.neo.voip_sdk
 
+import android.content.Context
+import com.neo.voip_sdk.phone.LinphoneManager
+
 interface SipEngine {
 
     fun initialize()
@@ -23,4 +26,8 @@ interface SipEngine {
     fun destroy()
 
     fun setListener(listener: SipEngineListener)
+
+    companion object {
+        fun build(context: Context) : SipEngine = LinphoneManager(context)
+    }
 }

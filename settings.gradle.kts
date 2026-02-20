@@ -30,7 +30,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "SIPApp"
 include(":app")
-include(":voip-sdk-core")
-include(":voip-sdk-linphone")
-include(":voip-sdk-service")
 include(":voip-sdk")

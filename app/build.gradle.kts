@@ -56,7 +56,8 @@ dependencies {
 
   implementation(libs.androidx.navigation3.ui)
   implementation(libs.androidx.navigation3.runtime)
-//  implementation(libs.linphone)
-  implementation("org.linphone.bundled:linphone-sdk-android:5.4+")
+// Dependency linphone dihapus
+
+  implementation(project(":voip-sdk"))
 
 }
