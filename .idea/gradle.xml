@@ -12,9 +12,6 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/voip-sdk" />
-            <option value="$PROJECT_DIR$/voip-sdk-core" />
-            <option value="$PROJECT_DIR$/voip-sdk-linphone" />
-            <option value="$PROJECT_DIR$/voip-sdk-service" />
           </set>
         </option>
       </GradleProjectSettings>

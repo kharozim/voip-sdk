@@ -1,5 +1,7 @@
 package com.neo.voip_sdk
 
+import android.Manifest
+import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -7,6 +9,7 @@ object VoipSdk {
 
     private lateinit var repository: VoipRepository
 
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun initialize(engine: SipEngine) {
         repository = VoipRepository(engine)
         repository.initialize()

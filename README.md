@@ -34,13 +34,29 @@ allprojects {
 }
 ```
 
+### 1a. Tambahkan Permission di AndroidManifest
+
+Tambahkan permission berikut di file `AndroidManifest.xml`:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.BLUETOOTH" />
+<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+```
+
+Tambahkan juga permission lain sesuai kebutuhan aplikasi (misal: `WAKE_LOCK`, `VIBRATE`, dsb).
+
 ### 2. Tambahkan dependency voip-sdk
 
 Ganti `username` dan `repo` sesuai GitHub Anda, dan `tag` sesuai versi release/tag:
 
 ```gradle
 dependencies {
-	implementation 'com.github.username:repo:tag'
+	implementation 'com.github.kharozim:voip-sdk:tag'
 }
 ```
 
@@ -50,6 +66,17 @@ implementation 'com.github.kharozim:SIPApp:1.0.5'
 ```
 
 ### 3. Cara Penggunaan voip-sdk
+
+**Pengecekan Permission**
+
+Pastikan permission sudah diberikan sebelum inisialisasi SDK. Contoh pengecekan permission di Activity:
+
+```kotlin
+if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+	ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 100)
+}
+// Lanjutkan inisialisasi setelah permission diberikan
+```
 
 **Inisialisasi SDK**
 
