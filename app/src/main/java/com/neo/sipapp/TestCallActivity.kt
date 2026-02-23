@@ -3,6 +3,7 @@ package com.neo.sipapp
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -126,14 +127,15 @@ fun TestCallScreen() {
     }
   }
 
-  DisposableEffect(Unit) {
+  DisposableEffect(Unit){
+
     voipSdk.initialize(engine = sipEngine)
     sipEngine.setListener(listener)
-    android.util.Log.e("TAG", "cobacall : DisposableEffect")
+    Log.e("TAG", "cobacall : DisposableEffect")
 
     onDispose {
       sipEngine.destroy()
-      android.util.Log.e("TAG", "cobacall : ondispose")
+      Log.e("TAG", "cobacall : ondispose")
     }
   }
 
