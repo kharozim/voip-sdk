@@ -60,7 +60,7 @@ fun TestCallScreen() {
   var username by remember { mutableStateOf("1012") }
   var password by remember { mutableStateOf("5678") }
   var domain by remember { mutableStateOf("147.139.193.218:5061") }
-  var destination by remember { mutableStateOf("085600431521") }
+  var destination by remember { mutableStateOf("082386092523") }
   val callState = remember { mutableStateListOf("Idle") }
   var registrationStatus by remember { mutableStateOf<RegistrationState>(RegistrationState.None) }
   var isLoggedIn by remember { mutableStateOf(false) }
