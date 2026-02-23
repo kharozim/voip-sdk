@@ -29,6 +29,15 @@ internal class LinphoneManager(
     this.listener = listener
   }
 
+  override fun getCallLog(): List<String> {
+    return core.callLogs.map { log ->
+      val direction = if (log.dir == Call.Dir.Incoming) "Incoming" else "Outgoing"
+      val from = log.fromAddress.asStringUriOnly()
+      val to = log.toAddress.asStringUriOnly()
+      val status = log.status.name
+      "$direction | From: $from | To: $to | Status: $status"
+    }
+  }
 
   private var isInitialized = false
   override fun initialize() {

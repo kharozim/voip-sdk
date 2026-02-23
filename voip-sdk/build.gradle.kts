@@ -38,7 +38,7 @@ publishing {
       // Format yang digunakan JitPack: com.github.[User]:[Repo]:[Versi Tag]
       groupId = "com.github.kharozim"
       artifactId = "voip-sdk"
-      version = "1.0.8"
+      version = "1.0.10"
 
       // Ini akan mengambil komponen 'release' yang berisi AAR yang di-generate Android
       afterEvaluate {
@@ -56,6 +56,6 @@ dependencies {
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.espresso.core)
-  implementation("org.linphone.bundled:linphone-sdk-android:5.4.0")
+  implementation("org.linphone.bundled:linphone-sdk-android:5.4.87")
 
 }

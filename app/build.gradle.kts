@@ -58,6 +58,7 @@ dependencies {
   implementation(libs.androidx.navigation3.runtime)
 // Dependency linphone dihapus
 
-  implementation("com.github.kharozim:voip-sdk:1.0.5")
+  implementation(project(":voip-sdk"))
+//  implementation("com.github.kharozim:voip-sdk:1.0.5")
 
 }

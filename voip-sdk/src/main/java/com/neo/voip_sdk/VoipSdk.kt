@@ -6,10 +6,12 @@ import kotlinx.coroutines.flow.StateFlow
 object VoipSdk {
 
     private lateinit var repository: VoipRepository
+    private var sipEngine: SipEngine? = null
 
     fun initialize(engine: SipEngine) {
         repository = VoipRepository(engine)
         repository.initialize()
+        sipEngine = engine
     }
 
     fun login(username: String, password: String, domain: String) =
@@ -38,6 +40,8 @@ object VoipSdk {
 
     fun observeIncomingCall(): Flow<String> =
         repository.incomingCall
+
+    fun getCallLog(): List<String> = sipEngine?.getCallLog() ?: emptyList()
 
     fun destroy() = repository.destroy()
 }

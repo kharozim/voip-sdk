@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -65,7 +66,8 @@ fun TestCallScreen() {
   var registrationStatus by remember { mutableStateOf<RegistrationState>(RegistrationState.None) }
   var isLoggedIn by remember { mutableStateOf(false) }
   var isCalling by remember { mutableStateOf(false) }
-  val voipSdk = remember { VoipSdk } // Uncomment and adjust as needed
+  val voipSdk = remember { VoipSdk }
+  val callLogList = remember { mutableStateListOf<String>() }
 
   // Contoh implementasi sederhana SipEngine (hanya dibuat sekali)
   val sipEngine = remember { SipEngine.build(context) }
@@ -81,6 +83,7 @@ fun TestCallScreen() {
               isLoggedIn = true
               "registered"
             }
+
             RegistrationState.Registering -> "registering"
           }
         )
@@ -103,6 +106,7 @@ fun TestCallScreen() {
               val message = state.reason
               "call error : $message"
             }
+
             CallState.Hold -> "call hold"
             CallState.Idle -> "call idle"
             CallState.Ringing -> "call ringing"
@@ -112,7 +116,7 @@ fun TestCallScreen() {
 
       override fun onIncomingCall(from: String) {
         callState.add("incoming call : $from")
-        android.util.Log.e("TAG", "cobacall onIncomingCall: $from")
+        Log.e("TAG", "cobacall onIncomingCall: $from")
       }
     }
   }
@@ -127,7 +131,7 @@ fun TestCallScreen() {
     }
   }
 
-  DisposableEffect(Unit){
+  DisposableEffect(Unit) {
 
     voipSdk.initialize(engine = sipEngine)
     sipEngine.setListener(listener)
@@ -203,6 +207,12 @@ fun TestCallScreen() {
             Text("Call")
           }
           Button(onClick = {
+            callLogList.clear()
+            callLogList.addAll(voipSdk.getCallLog())
+          }) {
+            Text("Get Call Log")
+          }
+          Button(onClick = {
             VoipSdk.logout()
             isLoggedIn = false
             registrationStatus = RegistrationState.None
@@ -230,10 +240,30 @@ fun TestCallScreen() {
           }
         }
       }
-      LazyColumn(Modifier.fillMaxWidth()) {
-        items(callState.size) {
-          Text("Call State: ${callState[it]}")
+      Row(Modifier.fillMaxWidth()) {
+        LazyColumn(
+          Modifier
+            .fillMaxWidth()
+            .weight(1f)
+        ) {
+          items(callState.size) {
+            Text("Call State: ${callState[it]}")
+            HorizontalDivider(Modifier.fillMaxWidth())
+          }
         }
+
+        LazyColumn(
+          Modifier
+            .fillMaxWidth()
+            .weight(1f)
+        ) {
+          items(callLogList.size) {
+            Text("Call Log: ${callLogList[it]}")
+            HorizontalDivider(Modifier.fillMaxWidth())
+          }
+        }
+
+
       }
     }
   }

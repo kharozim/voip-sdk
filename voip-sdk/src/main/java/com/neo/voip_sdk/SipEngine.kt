@@ -27,6 +27,8 @@ interface SipEngine {
 
     fun setListener(listener: SipEngineListener)
 
+    fun getCallLog(): List<String>
+
     companion object {
         fun build(context: Context) : SipEngine = LinphoneManager(context)
     }
