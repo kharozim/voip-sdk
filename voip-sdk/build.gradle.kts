@@ -30,6 +30,18 @@ android {
   kotlinOptions {
     jvmTarget = "17"
   }
+
+  sourceSets {
+    getByName("main") {
+      jniLibs.srcDirs("src/main/jniLibs")
+    }
+
+    packaging {
+      jniLibs {
+        pickFirsts += setOf("**/libc++_shared.so")
+      }
+    }
+  }
 }
 
 publishing {
@@ -56,6 +68,6 @@ dependencies {
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.espresso.core)
-  implementation("org.linphone.bundled:linphone-sdk-android:5.4.87")
+//  implementation("org.linphone.bundled:linphone-sdk-android:5.4.87")
 
 }

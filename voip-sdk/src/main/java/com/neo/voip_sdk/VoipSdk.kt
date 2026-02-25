@@ -1,47 +1,67 @@
 package com.neo.voip_sdk
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 object VoipSdk {
 
-    private lateinit var repository: VoipRepository
+    private var repository: VoipRepository? = null
     private var sipEngine: SipEngine? = null
 
+    // optional: expose init status to UI if needed
+    private val _isInitialized = MutableStateFlow(false)
+    val isInitialized: StateFlow<Boolean> = _isInitialized
+
     fun initialize(engine: SipEngine) {
-        repository = VoipRepository(engine)
-        repository.initialize()
+        // idempotent: jangan bikin repo baru kalau engine sama
+        if (sipEngine === engine && repository != null) return
+
+        // kalau sebelumnya ada repo/engine, rapikan dulu
+        runCatching { repository?.destroy() }
+
         sipEngine = engine
+        repository = VoipRepository(engine).also { it.initialize() }
+        _isInitialized.value = true
+    }
+
+    private fun repo(): VoipRepository {
+        return repository ?: error("VoipSdk is not initialized. Call VoipSdk.initialize(engine) first.")
     }
 
     fun login(username: String, password: String, domain: String) =
-        repository.login(username, password, domain)
+        repo().login(username, password, domain)
 
-    fun logout() = repository.logout()
+    fun logout() = repo().logout()
 
     fun startCall(destination: String) =
-        repository.startCall(destination)
+        repo().startCall(destination)
 
-    fun acceptCall() = repository.acceptCall()
+    fun acceptCall() = repo().acceptCall()
 
-    fun rejectCall() = repository.rejectCall()
+    fun rejectCall() = repo().rejectCall()
 
-    fun endCall() = repository.endCall()
+    fun endCall() = repo().endCall()
 
-    fun toggleMute() = repository.toggleMute()
+    fun toggleMute() = repo().toggleMute()
 
-    fun toggleSpeaker() = repository.toggleSpeaker()
+    fun toggleSpeaker() = repo().toggleSpeaker()
 
     fun observeCallState(): StateFlow<CallState> =
-        repository.callState
+        repo().callState
 
     fun observeRegistrationState(): StateFlow<RegistrationState> =
-        repository.registrationState
+        repo().registrationState
 
     fun observeIncomingCall(): Flow<String> =
-        repository.incomingCall
+        repo().incomingCall
 
     fun getCallLog(): List<String> = sipEngine?.getCallLog() ?: emptyList()
 
-    fun destroy() = repository.destroy()
+    fun destroy() {
+        runCatching { repository?.destroy() }
+        repository = null
+        sipEngine = null
+        _isInitialized.value = false
+    }
 }

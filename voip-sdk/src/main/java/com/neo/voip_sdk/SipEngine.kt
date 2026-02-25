@@ -1,7 +1,8 @@
 package com.neo.voip_sdk
 
 import android.content.Context
-import com.neo.voip_sdk.phone.LinphoneManager
+
+//import com.neo.voip_sdk.phone.LinphoneManager
 
 interface SipEngine {
 
@@ -30,6 +31,7 @@ interface SipEngine {
     fun getCallLog(): List<String>
 
     companion object {
-        fun build(context: Context) : SipEngine = LinphoneManager(context)
+//        fun build(context: Context) : SipEngine = LinphoneManager(context)
+        fun build(context: Context) : SipEngine = PjsipManager(context)
     }
 }
