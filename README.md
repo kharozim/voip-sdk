@@ -15,10 +15,7 @@ SIPApp adalah contoh aplikasi Android yang menggunakan voip-sdk untuk melakukan 
 - Auto Reconnect Network
 
 ## Struktur Modul
-- `voip-sdk-core`: API publik, state machine, repository, error mapping
-- `voip-sdk-linphone`: Core initialization, listener, account setup, call state mapping
-- `voip-sdk-service`: Foreground service, notification, audio focus, network monitoring
-
+- `voip-sdk`: API publik, state machine, repository, error mapping
 
 ## Cara Import & Penggunaan voip-sdk
 

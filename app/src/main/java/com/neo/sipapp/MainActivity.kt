@@ -104,7 +104,7 @@ fun HomeScreen(
         Text("Test Call Sample")
       }
       Spacer(Modifier.size(12.dp))
-      Button(onClick = { navToCall.invoke() }, Modifier.fillMaxWidth()) { Text("Call Screen") }
+//      Button(onClick = { navToCall.invoke() }, Modifier.fillMaxWidth()) { Text("Call Screen") }
     }
   }
 }
