@@ -13,3 +13,5 @@
 .externalNativeBuild
 .cxx
 local.properties
+/.idea/markdown.xml
+/.idea/vcs.xml
