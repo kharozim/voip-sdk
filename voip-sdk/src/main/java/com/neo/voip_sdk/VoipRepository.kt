@@ -44,8 +44,8 @@ internal class VoipRepository(
 
     fun initialize() = engine.initialize()
 
-    fun login(u: String, p: String, d: String) =
-        engine.login(u, p, d)
+    fun register(u: String, p: String, d: String) =
+        engine.register(u, p, d)
 
     fun logout() = engine.logout()
 
@@ -61,6 +61,10 @@ internal class VoipRepository(
     fun toggleMute() = engine.toggleMute()
 
     fun toggleSpeaker() = engine.toggleSpeaker()
+
+    fun toggleSpeaker(output : Int) = engine.toggleSpeaker(output)
+
+    fun getSpeakerOutput() : List<Int> = engine.getSpeakerOutput()
 
     fun destroy() = engine.destroy()
 }

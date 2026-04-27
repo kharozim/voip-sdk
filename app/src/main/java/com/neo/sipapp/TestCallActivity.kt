@@ -77,7 +77,7 @@ fun TestCallScreen() {
         registrationStatus = state
         callState.add(
           when (state) {
-            RegistrationState.Failed -> "register failed"
+            is RegistrationState.Failed -> "register failed"
             RegistrationState.None -> "register None"
             RegistrationState.Registered -> {
               isLoggedIn = true
@@ -193,7 +193,7 @@ fun TestCallScreen() {
               permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
               return@Button
             }
-            voipSdk.login(username, password, domain)
+            voipSdk.register(username, password, domain)
           }) {
             Text("Login")
           }

@@ -2,6 +2,7 @@ package com.neo.sipapp
 
 import android.content.Intent
 import android.os.Bundle
+import android.provider.CallLog
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -24,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
@@ -32,6 +34,7 @@ import androidx.core.text.isDigitsOnly
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import com.neo.sipapp.ui.theme.SIPAppTheme
+import com.neo.voip_sdk.CallSdk
 import kotlinx.serialization.Serializable
 
 sealed interface Screen {
@@ -46,6 +49,7 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    CallSdk.init(this)
     setContent {
       SIPAppTheme {
         val backStack = remember { mutableStateListOf<Screen>(Screen.Home) }
@@ -56,7 +60,27 @@ class MainActivity : ComponentActivity() {
             when (key) {
               Screen.Home -> NavEntry(key) {
                 HomeScreen(
-                  navToCall = { backStack.add(Screen.Call) },
+                  navToCall = {
+//                    backStack.add(Screen.Call)
+                    CallSdk.makeCall(
+                      activity = this,
+                      callerId = "111",
+                      callerName = "Imron Nanda",
+                      callerAvatar = "",
+                      calleeId = "222",
+                      calleeName = "John Doe",
+                      calleeAvatar = "https://akcdn.detik.net.id/api/wm/2026/02/05/suraj-chavan-1770282300425_169.png?w=1200",
+                      checkSum = "",
+                      username = "1012",
+                      password = "5678",
+                      domain = "147.139.193.218:5551",
+                      destination = "085600431521",
+                      metaData = mapOf(
+                        "call_title" to "Telefon Customer"
+                      ),
+                    )
+
+                  },
                   modifier = Modifier,
                 )
               }
@@ -93,7 +117,7 @@ fun HomeScreen(
     ) {
 
       Spacer(Modifier.size(12.dp))
-      val context = androidx.compose.ui.platform.LocalContext.current
+      val context = LocalContext.current
       Button(
         onClick = {
           val intent = Intent(context, TestCallActivity::class.java)
@@ -104,7 +128,7 @@ fun HomeScreen(
         Text("Test Call Sample")
       }
       Spacer(Modifier.size(12.dp))
-//      Button(onClick = { navToCall.invoke() }, Modifier.fillMaxWidth()) { Text("Call Screen") }
+      Button(onClick = { navToCall.invoke() }, Modifier.fillMaxWidth()) { Text("Call Screen") }
     }
   }
 }

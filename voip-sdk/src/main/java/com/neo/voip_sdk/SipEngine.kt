@@ -7,7 +7,7 @@ interface SipEngine {
 
     fun initialize()
 
-    fun login(username: String, password: String, domain: String)
+    fun register(username: String, password: String, domain: String)
 
     fun logout()
 
@@ -22,6 +22,10 @@ interface SipEngine {
     fun toggleMute()
 
     fun toggleSpeaker()
+
+    fun toggleSpeaker(output : Int)
+
+    fun getSpeakerOutput() : List<Int>
 
     fun destroy()
 

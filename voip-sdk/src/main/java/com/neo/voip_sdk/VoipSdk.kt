@@ -14,8 +14,8 @@ object VoipSdk {
         sipEngine = engine
     }
 
-    fun login(username: String, password: String, domain: String) =
-        repository.login(username, password, domain)
+    fun register(username: String, password: String, domain: String) =
+        repository.register(username, password, domain)
 
     fun logout() = repository.logout()
 
@@ -31,6 +31,9 @@ object VoipSdk {
     fun toggleMute() = repository.toggleMute()
 
     fun toggleSpeaker() = repository.toggleSpeaker()
+    fun toggleSpeaker(output : Int) = repository.toggleSpeaker(output)
+
+    fun getSpeakerOutput() : List<Int> = repository.getSpeakerOutput()
 
     fun observeCallState(): StateFlow<CallState> =
         repository.callState

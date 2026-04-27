@@ -43,8 +43,8 @@ internal class LinphoneManager(
   override fun initialize() {
 
     if (isInitialized) return
-    Log.e("TAG", "cobacall : init ialize")
-    factory.setDebugMode(true, "cobacall")
+    Log.e("TAG", "cobacall : initialize")
+    factory.setDebugMode(true, "LinphoneManager")
 
     core = factory.createCore(null, null, context)
     // Echo cancellation
@@ -61,7 +61,7 @@ internal class LinphoneManager(
     isInitialized = true
   }
 
-  override fun login(username: String, password: String, domain: String) {
+  override fun register(username: String, password: String, domain: String) {
 
     val authInfo = factory.createAuthInfo(
       username,
@@ -87,12 +87,11 @@ internal class LinphoneManager(
     core.addAuthInfo(authInfo)
     core.addAccount(account)
     core.defaultAccount = account
-    Log.e("TAG", "cobacall : login")
+    Log.e("TAG", "cobacall : register")
 
   }
 
   override fun logout() {
-
     core.accountList.forEach {
       core.removeAccount(it)
     }
@@ -104,6 +103,10 @@ internal class LinphoneManager(
   }
 
   override fun startCall(destination: String) {
+    if (currentCall != null) return
+
+    routeAudioToEarpiece()
+
     val address = factory.createAddress(destination)
     address?.let { address ->
       // We also need a CallParams object
@@ -149,6 +152,17 @@ internal class LinphoneManager(
     speaker?.let { core.outputAudioDevice = it }
   }
 
+  override fun toggleSpeaker(output: Int) {
+    val speaker = core.audioDevices.firstOrNull {
+      it.type.toInt() == output
+    }
+    speaker?.let { core.outputAudioDevice = it }
+  }
+
+  override fun getSpeakerOutput(): List<Int> {
+    return core.audioDevices.map { it.type.toInt() }
+  }
+
   override fun destroy() {
     if (!::core.isInitialized) return
 
@@ -171,6 +185,13 @@ internal class LinphoneManager(
     }
   }
 
+  private fun routeAudioToEarpiece() {
+    val earpiece = core.audioDevices.firstOrNull {
+      it.type == AudioDevice.Type.Earpiece
+    }
+    earpiece?.let { core.outputAudioDevice = it }
+  }
+
   private val coreListener =
     object : CoreListenerStub() {
 
@@ -180,14 +201,14 @@ internal class LinphoneManager(
         state: org.linphone.core.RegistrationState,
         message: String,
       ) {
-        Log.e("TAG", "cobacall : onRegistrationStateChanged ${state.name}")
+        Log.e("TAG", "cobacall : onRegistrationStateChanged ${state.name} $message")
 
         when (state) {
           org.linphone.core.RegistrationState.Ok ->
             listener?.onRegistration(RegistrationState.Registered)
 
           org.linphone.core.RegistrationState.Failed ->
-            listener?.onRegistration(RegistrationState.Failed)
+            listener?.onRegistration(RegistrationState.Failed(message))
 
           else ->
             listener?.onRegistration(RegistrationState.Registering)
@@ -209,6 +230,12 @@ internal class LinphoneManager(
           Call.State.OutgoingInit ->
             listener?.onCallState(CallState.Calling)
 
+          Call.State.OutgoingProgress,
+          Call.State.OutgoingRinging -> {
+            routeAudioToEarpiece()
+            listener?.onCallState(CallState.Ringing)
+          }
+
           Call.State.IncomingReceived ->
             listener?.onIncomingCall(
               call.remoteAddress.asStringUriOnly()
@@ -217,11 +244,16 @@ internal class LinphoneManager(
           Call.State.StreamsRunning ->
             listener?.onCallState(CallState.Active)
 
-          Call.State.End ->
+          Call.State.End,
+          Call.State.Released -> {
+            currentCall = null
             listener?.onCallState(CallState.Disconnected)
+          }
 
-          Call.State.Error ->
+          Call.State.Error -> {
+            currentCall = null
             listener?.onCallState(CallState.Error(message))
+          }
 
           else -> {}
         }
