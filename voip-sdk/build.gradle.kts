@@ -43,7 +43,7 @@ publishing {
       // Format yang digunakan JitPack: com.github.[User]:[Repo]:[Versi Tag]
       groupId = "com.github.kharozim"
       artifactId = "voip-sdk"
-      version = "1.0.10"
+      version = "1.0.11"
 
       // Ini akan mengambil komponen 'release' yang berisi AAR yang di-generate Android
       afterEvaluate {
