@@ -6,10 +6,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.neo.voip_sdk.VoipSdk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,23 +18,33 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class NeoCallService : Service() {
+  companion object {
+    private const val NOTIFICATION_ID = 1001
+    private const val CHANNEL_ID = "voip_channel"
+  }
 
   private var isForegroundStarted = false
-
+  private val binder = LocalBinder()
   private var timerJob: Job? = null
+  private var callStartTimeMillis = 0L
+  private var currentDurationSeconds = 0L
+  private var lastCallDurationSeconds = 0L
+  private var onTickerUpdate: ((seconds: Long) -> Unit)? = null
+
+  inner class LocalBinder : Binder() {
+    fun getService(): NeoCallService = this@NeoCallService
+  }
 
   override fun onCreate() {
     super.onCreate()
     startForeground(
-      1001,
+      NOTIFICATION_ID,
       buildNotification()
     )
     isForegroundStarted = true
   }
 
-  private fun buildNotification(): Notification {
-    val channelId = "voip_channel"
-
+  private fun buildNotification(durationSeconds: Long = currentDurationSeconds): Notification {
     val manager =
       getSystemService(NOTIFICATION_SERVICE)
         as NotificationManager
@@ -42,42 +52,85 @@ class NeoCallService : Service() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       manager.createNotificationChannel(
         NotificationChannel(
-          channelId,
+          CHANNEL_ID,
           "NeoCall Service",
           NotificationManager.IMPORTANCE_LOW
         )
       )
     }
 
-    return NotificationCompat.Builder(this, channelId)
-      .setContentTitle("NeoCall Active")
+    return NotificationCompat.Builder(this, CHANNEL_ID)
+      .setContentTitle("Call Active")
+      .setContentText("Durasi ${formatElapsedTime(durationSeconds)}")
       .setSmallIcon(R.drawable.sym_call_outgoing)
       .setOngoing(true)
       .build()
   }
 
-  var onTickerUpdate: ((seconds: Long) -> Unit)? = null
+  fun setOnTickerUpdateListener(listener: ((seconds: Long) -> Unit)?) {
+    onTickerUpdate = listener
+    listener?.invoke(currentDurationSeconds)
+  }
+
+  fun getCurrentDurationSeconds(): Long = currentDurationSeconds
+
+  fun getLastCallDurationSeconds(): Long = lastCallDurationSeconds
+
   fun startCallTimer() {
-    timerJob?.cancel()
+    if (timerJob?.isActive == true) return
+
+    if (callStartTimeMillis == 0L) {
+      callStartTimeMillis = System.currentTimeMillis()
+      currentDurationSeconds = 0L
+      lastCallDurationSeconds = 0L
+      publishTicker()
+    }
+
     timerJob = CoroutineScope(Dispatchers.Default).launch {
-      var seconds = 0L
       while (isActive) {
         delay(1000)
-        seconds++
-        onTickerUpdate?.invoke(seconds)
+        currentDurationSeconds = (System.currentTimeMillis() - callStartTimeMillis) / 1000
+        publishTicker()
       }
     }
   }
 
   fun stopTimer() {
     timerJob?.cancel()
+    timerJob = null
+    if (callStartTimeMillis != 0L) {
+      currentDurationSeconds = (System.currentTimeMillis() - callStartTimeMillis) / 1000
+      lastCallDurationSeconds = currentDurationSeconds
+      callStartTimeMillis = 0L
+      publishTicker()
+    }
   }
 
-  override fun onBind(intent: Intent?): IBinder? = null
+  private fun publishTicker() {
+    onTickerUpdate?.invoke(currentDurationSeconds)
+    updateNotification(currentDurationSeconds)
+  }
+
+  private fun updateNotification(durationSeconds: Long) {
+    val manager =
+      getSystemService(NOTIFICATION_SERVICE)
+        as NotificationManager
+    manager.notify(NOTIFICATION_ID, buildNotification(durationSeconds))
+  }
+
+  override fun onBind(intent: Intent?): IBinder = binder
+
+  override fun onUnbind(intent: Intent?): Boolean {
+    onTickerUpdate = null
+    return super.onUnbind(intent)
+  }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
-      Action.OUTGOING -> {}
+      Action.OUTGOING -> {
+        updateNotification(currentDurationSeconds)
+      }
+
       Action.ONGOING -> {
         startCallTimer()
       }
@@ -111,8 +164,16 @@ class NeoCallService : Service() {
   }
 
   override fun onDestroy() {
-    stopTimer()
+    timerJob?.cancel()
+    timerJob = null
+    onTickerUpdate = null
     stopForegroundService()
     super.onDestroy()
+  }
+
+  private fun formatElapsedTime(seconds: Long): String {
+    val minutes = seconds / 60
+    val secs = seconds % 60
+    return String.format("%02d:%02d", minutes, secs)
   }
 }

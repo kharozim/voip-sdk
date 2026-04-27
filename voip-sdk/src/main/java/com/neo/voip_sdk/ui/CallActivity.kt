@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -53,7 +54,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -65,6 +65,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -79,6 +80,7 @@ import com.neo.voip_sdk.VoipSdk
 import com.neo.voip_sdk.icons.SpeakerBluetooth
 import com.neo.voip_sdk.icons.SpeakerHeadphone
 import com.neo.voip_sdk.service.NeoCallService
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlin.collections.get
 
@@ -93,6 +95,9 @@ class CallActivity : ComponentActivity() {
   var password: String = ""
   var domain: String = ""
   var destination: String = ""
+  private val currentCallDurationSeconds = MutableStateFlow(0L)
+  private val lastCallDurationSeconds = MutableStateFlow(0L)
+  private var callService: NeoCallService? = null
   var metaData: HashMap<*, *> = hashMapOf(
     "call_title" to "Free Call",
     "call_busy" to "The customer is busy and cannot be reached",
@@ -160,11 +165,20 @@ class CallActivity : ComponentActivity() {
   )
   private var bound = false
   private val callServiceConnection = object : ServiceConnection {
-    override fun onServiceConnected(p0: ComponentName?, p1: IBinder?) {
+    override fun onServiceConnected(p0: ComponentName?, binder: IBinder?) {
+      val binder = binder as? NeoCallService.LocalBinder ?: return
+      callService = binder.getService()
       bound = true
+      currentCallDurationSeconds.value = callService?.getCurrentDurationSeconds() ?: 0L
+      lastCallDurationSeconds.value = callService?.getLastCallDurationSeconds() ?: 0L
+      callService?.setOnTickerUpdateListener { seconds ->
+        currentCallDurationSeconds.value = seconds
+      }
     }
 
     override fun onServiceDisconnected(p0: ComponentName?) {
+      callService?.setOnTickerUpdateListener(null)
+      callService = null
       bound = false
     }
   }
@@ -177,11 +191,17 @@ class CallActivity : ComponentActivity() {
   }
 
   private fun stopCallService() {
+    val finalDuration = callService?.getLastCallDurationSeconds()
+      ?.takeIf { it > 0 }
+      ?: currentCallDurationSeconds.value
+    lastCallDurationSeconds.value = finalDuration
+    callService?.setOnTickerUpdateListener(null)
     stopService(buildCallServiceIntent(NeoCallService.Action.STOP))
     if (bound) {
       unbindService(callServiceConnection)
       bound = false
     }
+    callService = null
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -230,7 +250,8 @@ class CallActivity : ComponentActivity() {
 
     enableEdgeToEdge()
     setContent {
-      var timeTicker by remember { mutableLongStateOf(0L) }
+      val timeTicker by currentCallDurationSeconds.collectAsState()
+      val lastTicker by lastCallDurationSeconds.collectAsState()
       var isMicMuted by remember { mutableStateOf(false) }
       var speakerOutput by remember { mutableIntStateOf(0) }
       var callStatusRaw by remember { mutableStateOf("") }
@@ -240,6 +261,8 @@ class CallActivity : ComponentActivity() {
       val registrationState by VoipSdk.observeRegistrationState().collectAsState()
       val callState by VoipSdk.observeCallState().collectAsState()
       var errorMessage by remember { mutableStateOf<String?>(null) }
+      var loadingMessage by remember { mutableStateOf<String?>(null) }
+      var showLoading by remember { mutableStateOf(false) }
 
       SetSystemBarAppearance(isLight = true)
       LaunchedEffect(registrationState) {
@@ -247,17 +270,22 @@ class CallActivity : ComponentActivity() {
           is RegistrationState.Failed -> {
             errorMessage = "registration failed : ${state.message}"
             showErrorDialog = true
+            showLoading = false
           }
 
-          RegistrationState.None -> {}
+          RegistrationState.None -> {
+          }
+
           RegistrationState.Registered -> {
 //            callStatusRaw = "registered"
-            showToast("registered")
             VoipSdk.startCall("sip:$destination@$domain")
+            showLoading = false
           }
 
           RegistrationState.Registering -> {
 //            callStatusRaw = "registering"
+            loadingMessage = "Registering..."
+            showLoading = true
           }
         }
       }
@@ -266,6 +294,7 @@ class CallActivity : ComponentActivity() {
         when (val state = callState) {
           CallState.Active -> {
             callStatusRaw = "active"
+            lastCallDurationSeconds.value = 0L
             startService(buildCallServiceIntent(NeoCallService.Action.ONGOING))
           }
 
@@ -279,11 +308,15 @@ class CallActivity : ComponentActivity() {
 
           CallState.Disconnected -> {
             callStatusRaw = "disconnected"
+            lastCallDurationSeconds.value =
+              callService?.getLastCallDurationSeconds()?.takeIf { it > 0 } ?: timeTicker
             stopCallService()
           }
 
           is CallState.Error -> {
             callStatusRaw = "error"
+            lastCallDurationSeconds.value =
+              callService?.getLastCallDurationSeconds()?.takeIf { it > 0 } ?: timeTicker
             stopCallService()
             errorMessage = "call error ${state.reason}"
             showErrorDialog = true
@@ -308,17 +341,26 @@ class CallActivity : ComponentActivity() {
         Log.e("TAG", "cobacall : DisposableEffect init & register")
 
         onDispose {
+          callService?.setOnTickerUpdateListener(null)
           stopCallService()
           VoipSdk.destroy()
           Log.e("TAG", "cobacall : onDispose destroy")
 
         }
       }
+
+      val callTimerText = when {
+        callStatusRaw == "active" -> formatElapsedTime(timeTicker)
+        callStatusRaw in listOf("disconnected", "error") && lastTicker > 0L ->
+          "Call duration ${formatElapsedTime(lastTicker)}"
+
+        else -> (metaData["call_$callStatusRaw"] ?: callStatusRaw).toString()
+      }
+
       MaterialTheme {
         CallScreen(
           callerName = if (callType == "incoming") callerName else calleeName,
-          callTimer = if (callStatusRaw == "active") formatElapsedTime(timeTicker)
-          else metaData["call_$callStatusRaw"] ?: callStatusRaw,
+          callTimer = callTimerText,
           callStatusRaw = callStatusRaw,
           signalState = if (connectionState == "active") "" else connectionState,
           avatarUrl = if (callType == "incoming") callerAvatar else calleeAvatar,
@@ -341,10 +383,16 @@ class CallActivity : ComponentActivity() {
             // TODO: answerclick
           },
           onEndCallClick = {
-            VoipSdk.endCall()
-            stopCallService()
-            finish()
+            if (callStatusRaw in listOf("disconnected", "error", "idle")) {
+              finish()
+            } else {
+              VoipSdk.endCall()
+            }
           })
+
+        if (showLoading) {
+          Loading(message = loadingMessage.orEmpty(), onDismissRequest = {})
+        }
 
         if (showSpeakerDialog) {
           val listSpeaker = VoipSdk.getSpeakerOutput().filter { it in listOf(2, 3, 4, 9, 10) }
@@ -380,19 +428,20 @@ class CallActivity : ComponentActivity() {
             }
           })
         }
-        ErrorAlertDialog(
-          showDialog = showErrorDialog,
-          onDismiss = {
-            showErrorDialog = false
-            VoipSdk.endCall()
-            VoipSdk.logout()
-            stopCallService()
-            VoipSdk.destroy()
-//            callService?.forceStop()
-//            incomingService?.forceStop()
-            finish()
-          }, withIcon = true, message = errorMessage
-        )
+
+        if (showErrorDialog) {
+          ErrorAlertDialog(
+            onDismiss = {
+              showErrorDialog = false
+              VoipSdk.endCall()
+              VoipSdk.logout()
+              stopCallService()
+              VoipSdk.destroy()
+              finish()
+            },
+            message = errorMessage
+          )
+        }
       }
     }
   }
@@ -700,40 +749,70 @@ fun RoundIconButton(
   }
 }
 
-
 @Composable
-@Preview
-fun DefaultPreview() {
-  val metaData: HashMap<*, *> = hashMapOf(
-    "initializing" to "Initializing",
-    "call_title" to "Telpone gratis",
-    "ringing" to "Ringing",
-    "connected" to "Connected",
-    "ended" to "Ended",
-    "answer" to "Answer",
-    "decline" to "Decline",
-    "mute" to "Mute",
-    "unmute" to "Unmute",
-    "speaker" to "Speaker",
-    "phone_speaker" to "Phone Speaker",
-  )
-  MaterialTheme {
-    CallScreen(
-      callerName = "Driver Andhi",
-      callTimer = "",
-      callStatusRaw = "connected",
-      signalState = "call_lost_connection",
-      avatarUrl = "",
-      isMicMuted = false,
-      speakerOutput = 4,
-      metaData = metaData.mapKeys { it.key.toString() }.mapValues { it.value.toString() },
-      onMuteClick = {},
-      onEndCallClick = {},
-      onAnswerCallClick = {},
-      onSpeakerClick = {},
-      onNumpadClick = {})
-    ErrorAlertDialog(
-      showDialog = false, onDismiss = {}, withIcon = true, message = "networkErrorText"
-    )
+private fun Loading(message: String, onDismissRequest: () -> Unit) {
+  MaterialTheme() {
+    Dialog(
+      onDismissRequest = onDismissRequest
+    ) {
+      Column(
+        horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier
+          .background(
+            Color.White,
+            RoundedCornerShape(12.dp)
+          )
+          .padding(vertical = 12.dp, horizontal = 24.dp)
+      ) {
+        CircularProgressIndicator(
+          modifier = Modifier.size(32.dp),
+        )
+        Text(message, Modifier.padding(top = 8.dp), textAlign = TextAlign.Center)
+      }
+
+    }
   }
 }
+
+@Preview(showBackground = true)
+@Composable
+private fun Preview() {
+  Loading(message = "Loading...") { }
+}
+
+//@Composable
+//@Preview
+//private fun DefaultPreview() {
+//  val metaData: HashMap<*, *> = hashMapOf(
+//    "initializing" to "Initializing",
+//    "call_title" to "Telpone gratis",
+//    "ringing" to "Ringing",
+//    "connected" to "Connected",
+//    "ended" to "Ended",
+//    "answer" to "Answer",
+//    "decline" to "Decline",
+//    "mute" to "Mute",
+//    "unmute" to "Unmute",
+//    "speaker" to "Speaker",
+//    "phone_speaker" to "Phone Speaker",
+//  )
+//  MaterialTheme {
+//    CallScreen(
+//      callerName = "Driver Andhi",
+//      callTimer = "",
+//      callStatusRaw = "connected",
+//      signalState = "call_lost_connection",
+//      avatarUrl = "",
+//      isMicMuted = false,
+//      speakerOutput = 4,
+//      metaData = metaData.mapKeys { it.key.toString() }.mapValues { it.value.toString() },
+//      onMuteClick = {},
+//      onEndCallClick = {},
+//      onAnswerCallClick = {},
+//      onSpeakerClick = {},
+//      onNumpadClick = {})
+//    ErrorAlertDialog(
+//      onDismiss = {},
+//      message = "networkErrorText"
+//    )
+//  }
+//}

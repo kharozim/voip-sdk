@@ -24,52 +24,47 @@ import androidx.compose.ui.window.Dialog
 
 @Composable
 fun ErrorAlertDialog(
-  showDialog: Boolean,
   onDismiss: () -> Unit,
-  withIcon: Boolean, // opsional
   message: String? = null,
   content: @Composable (() -> Unit)? = null,
 ) {
-  if (showDialog) {
-    Dialog(
-      onDismissRequest = {
-        onDismiss()
-      }
+  Dialog(
+    onDismissRequest = {
+      onDismiss()
+    }
+  ) {
+    Box(
+      modifier = Modifier
+        .fillMaxWidth()
+        .wrapContentHeight()
+        .background(Color.White, shape = RoundedCornerShape(5.dp))
+        .padding(all = 10.dp)
     ) {
-      Box(
-        modifier = Modifier
-          .fillMaxWidth()
-          .wrapContentHeight()
-          .background(Color.White, shape = RoundedCornerShape(5.dp))
-          .padding(all = 10.dp)
+      Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
       ) {
-        Column(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-          // icon opsional di atas tengah
-          if (withIcon) {
-            Icon(
-              Icons.Default.ErrorOutline,
-              contentDescription = null,
-              tint = Color.Unspecified,
-              modifier = Modifier
-                .height(24.dp)
-                .width(20.dp)
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-          }
-          message?.let {
-            Text(
-              text = it,
-              color = Color.Black,
-              textAlign = TextAlign.Center
-            )
-          }
+        // icon opsional di atas tengah
+        Icon(
+          Icons.Default.ErrorOutline,
+          contentDescription = null,
+          tint = Color.Red,
+          modifier = Modifier
+            .height(24.dp)
+            .width(20.dp)
+        )
+        Spacer(modifier = Modifier.height(10.dp))
 
-          // Jika ada custom composable content
-          content?.invoke()
+        message?.let {
+          Text(
+            text = it,
+            color = Color.Black,
+            textAlign = TextAlign.Center
+          )
         }
+
+        // Jika ada custom composable content
+        content?.invoke()
       }
     }
   }
