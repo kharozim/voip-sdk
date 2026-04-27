@@ -21,8 +21,6 @@ interface SipEngine {
 
     fun toggleMute()
 
-    fun toggleSpeaker()
-
     fun toggleSpeaker(output : Int)
 
     fun getSpeakerOutput() : List<Int>

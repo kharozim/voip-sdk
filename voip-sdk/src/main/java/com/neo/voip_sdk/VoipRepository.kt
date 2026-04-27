@@ -60,8 +60,6 @@ internal class VoipRepository(
 
     fun toggleMute() = engine.toggleMute()
 
-    fun toggleSpeaker() = engine.toggleSpeaker()
-
     fun toggleSpeaker(output : Int) = engine.toggleSpeaker(output)
 
     fun getSpeakerOutput() : List<Int> = engine.getSpeakerOutput()

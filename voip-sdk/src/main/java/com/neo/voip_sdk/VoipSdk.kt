@@ -30,7 +30,6 @@ object VoipSdk {
 
     fun toggleMute() = repository.toggleMute()
 
-    fun toggleSpeaker() = repository.toggleSpeaker()
     fun toggleSpeaker(output : Int) = repository.toggleSpeaker(output)
 
     fun getSpeakerOutput() : List<Int> = repository.getSpeakerOutput()

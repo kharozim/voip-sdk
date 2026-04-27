@@ -105,7 +105,7 @@ voipSdk.endCall()
 **Toggle Speaker & Mute**
 
 ```kotlin
-voipSdk.toggleSpeaker()
+voipSdk.toggleSpeaker(3) // 3 = Speaker
 voipSdk.toggleMute()
 ```
 

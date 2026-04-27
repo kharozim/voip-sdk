@@ -6,6 +6,12 @@ import com.neo.voip_sdk.CallState
 import com.neo.voip_sdk.RegistrationState
 import com.neo.voip_sdk.SipEngine
 import com.neo.voip_sdk.SipEngineListener
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.linphone.core.AudioDevice
 import org.linphone.core.Call
 import org.linphone.core.Core
@@ -19,11 +25,19 @@ import org.linphone.core.TransportType
 internal class LinphoneManager(
   private val context: Context,
 ) : SipEngine {
+  companion object {
+    private const val EARPIECE_OUTPUT = 2
+    private const val AUDIO_ROUTE_RETRY_COUNT = 6
+    private const val AUDIO_ROUTE_RETRY_DELAY_MS = 250L
+  }
 
   private val factory = Factory.instance()
+  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   private lateinit var core: Core
   private var currentCall: Call? = null
   private var listener: SipEngineListener? = null
+  private var preferredOutput = EARPIECE_OUTPUT
+  private var audioRouteRetryJob: Job? = null
 
   override fun setListener(listener: SipEngineListener) {
     this.listener = listener
@@ -105,7 +119,8 @@ internal class LinphoneManager(
   override fun startCall(destination: String) {
     if (currentCall != null) return
 
-    routeAudioToEarpiece()
+    preferredOutput = EARPIECE_OUTPUT
+    applyPreferredAudioRoute()
 
     val address = factory.createAddress(destination)
     address?.let { address ->
@@ -135,6 +150,7 @@ internal class LinphoneManager(
   }
 
   override fun endCall() {
+    stopAudioRouteRetry()
     currentCall?.terminate()
     currentCall = null
   }
@@ -145,18 +161,10 @@ internal class LinphoneManager(
     }
   }
 
-  override fun toggleSpeaker() {
-    val speaker = core.audioDevices.firstOrNull {
-      it.type == AudioDevice.Type.Speaker
-    }
-    speaker?.let { core.outputAudioDevice = it }
-  }
-
   override fun toggleSpeaker(output: Int) {
-    val speaker = core.audioDevices.firstOrNull {
-      it.type.toInt() == output
-    }
-    speaker?.let { core.outputAudioDevice = it }
+    stopAudioRouteRetry()
+    preferredOutput = output
+    applyPreferredAudioRoute()
   }
 
   override fun getSpeakerOutput(): List<Int> {
@@ -167,6 +175,7 @@ internal class LinphoneManager(
     if (!::core.isInitialized) return
 
     try {
+      stopAudioRouteRetry()
       currentCall?.terminate()
       currentCall = null
 
@@ -185,11 +194,37 @@ internal class LinphoneManager(
     }
   }
 
-  private fun routeAudioToEarpiece() {
-    val earpiece = core.audioDevices.firstOrNull {
+  private fun applyPreferredAudioRoute() {
+    val audioDevice = core.audioDevices.firstOrNull {
+      it.type.toInt() == preferredOutput
+    } ?: core.audioDevices.firstOrNull {
       it.type == AudioDevice.Type.Earpiece
     }
-    earpiece?.let { core.outputAudioDevice = it }
+
+    if (audioDevice == null) {
+      Log.w("TAG", "cobacall : no audio device found for output=$preferredOutput")
+      return
+    }
+
+    core.outputAudioDevice = audioDevice
+    Log.d("TAG", "cobacall : output audio device=${audioDevice.type.name}")
+  }
+
+  private fun retryPreferredAudioRoute() {
+    if (preferredOutput != EARPIECE_OUTPUT) return
+
+    audioRouteRetryJob?.cancel()
+    audioRouteRetryJob = scope.launch {
+      repeat(AUDIO_ROUTE_RETRY_COUNT) {
+        delay(AUDIO_ROUTE_RETRY_DELAY_MS)
+        applyPreferredAudioRoute()
+      }
+    }
+  }
+
+  private fun stopAudioRouteRetry() {
+    audioRouteRetryJob?.cancel()
+    audioRouteRetryJob = null
   }
 
   private val coreListener =
@@ -228,11 +263,19 @@ internal class LinphoneManager(
         when (state) {
 
           Call.State.OutgoingInit ->
-            listener?.onCallState(CallState.Calling)
+            run {
+              applyPreferredAudioRoute()
+              listener?.onCallState(CallState.Calling)
+            }
 
-          Call.State.OutgoingProgress,
+          Call.State.OutgoingProgress -> {
+            applyPreferredAudioRoute()
+            listener?.onCallState(CallState.Ringing)
+          }
+
           Call.State.OutgoingRinging -> {
-            routeAudioToEarpiece()
+            applyPreferredAudioRoute()
+            retryPreferredAudioRoute()
             listener?.onCallState(CallState.Ringing)
           }
 
@@ -241,17 +284,24 @@ internal class LinphoneManager(
               call.remoteAddress.asStringUriOnly()
             )
 
-          Call.State.StreamsRunning ->
+          Call.State.StreamsRunning -> {
+            stopAudioRouteRetry()
+            applyPreferredAudioRoute()
             listener?.onCallState(CallState.Active)
+          }
 
           Call.State.End,
           Call.State.Released -> {
+            stopAudioRouteRetry()
             currentCall = null
+            preferredOutput = EARPIECE_OUTPUT
             listener?.onCallState(CallState.Disconnected)
           }
 
           Call.State.Error -> {
+            stopAudioRouteRetry()
             currentCall = null
+            preferredOutput = EARPIECE_OUTPUT
             listener?.onCallState(CallState.Error(message))
           }
 

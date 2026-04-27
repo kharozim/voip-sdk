@@ -54,6 +54,9 @@ class TestCallActivity : ComponentActivity() {
   }
 }
 
+private const val EARPIECE_OUTPUT = 2
+private const val SPEAKER_OUTPUT = 3
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TestCallScreen() {
@@ -61,11 +64,12 @@ fun TestCallScreen() {
   var username by remember { mutableStateOf("1012") }
   var password by remember { mutableStateOf("5678") }
   var domain by remember { mutableStateOf("147.139.193.218:5551") }
-  var destination by remember { mutableStateOf("082386092523") }
+  var destination by remember { mutableStateOf("085600431521") }
   val callState = remember { mutableStateListOf("Idle") }
   var registrationStatus by remember { mutableStateOf<RegistrationState>(RegistrationState.None) }
   var isLoggedIn by remember { mutableStateOf(false) }
   var isCalling by remember { mutableStateOf(false) }
+  var selectedAudioOutput by remember { mutableStateOf(EARPIECE_OUTPUT) }
   val voipSdk = remember { VoipSdk }
   val callLogList = remember { mutableStateListOf<String>() }
 
@@ -92,8 +96,14 @@ fun TestCallScreen() {
       override fun onCallState(state: CallState) {
         when (state) {
           CallState.Active, CallState.Calling, CallState.Connected -> isCalling = true
-          CallState.Disconnected, CallState.Idle -> isCalling = false
-          is CallState.Error -> isCalling = false
+          CallState.Disconnected, CallState.Idle -> {
+            isCalling = false
+            selectedAudioOutput = EARPIECE_OUTPUT
+          }
+          is CallState.Error -> {
+            isCalling = false
+            selectedAudioOutput = EARPIECE_OUTPUT
+          }
           else -> {}
         }
         callState.add(
@@ -223,13 +233,17 @@ fun TestCallScreen() {
         // Jika sedang call, tampilkan tombol Load Speaker, End Call, dan Mute
         if (isCalling) {
           Button(onClick = {
-            VoipSdk.toggleSpeaker()
+            val nextOutput =
+              if (selectedAudioOutput == SPEAKER_OUTPUT) EARPIECE_OUTPUT else SPEAKER_OUTPUT
+            VoipSdk.toggleSpeaker(nextOutput)
+            selectedAudioOutput = nextOutput
           }) {
             Text("Load Speaker")
           }
           Button(onClick = {
             voipSdk.endCall()
             isCalling = false
+            selectedAudioOutput = EARPIECE_OUTPUT
           }) {
             Text("End Call")
           }

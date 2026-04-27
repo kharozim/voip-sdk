@@ -303,57 +303,6 @@ class CallActivity : ComponentActivity() {
         }
       }
 
-      // Contoh implementasi sederhana SipEngine (hanya dibuat sekali)
-//      val listener: SipEngineListener = remember {
-//        object : SipEngineListener {
-//          override fun onRegistration(state: RegistrationState) {
-//            registrationStatus = state
-//            callState.add(
-//              when (state) {
-//                RegistrationState.Failed -> "register failed"
-//                RegistrationState.None -> "register None"
-//                RegistrationState.Registered -> {
-//                  isLoggedIn = true
-//                  "registered"
-//                }
-//
-//                RegistrationState.Registering -> "registering"
-//              }
-//            )
-//          }
-//
-//          override fun onCallState(state: CallState) {
-//            when (state) {
-//              CallState.Active, CallState.Calling, CallState.Connected -> isCalling = true
-//              CallState.Disconnected, CallState.Idle -> isCalling = false
-//              is CallState.Error -> isCalling = false
-//              else -> {}
-//            }
-//            callState.add(
-//              when (state) {
-//                CallState.Active -> "call active"
-//                CallState.Calling -> "call calling"
-//                CallState.Connected -> "call connected"
-//                CallState.Disconnected -> "call disconnect"
-//                is CallState.Error -> {
-//                  val message = state.reason
-//                  "call error : $message"
-//                }
-//
-//                CallState.Hold -> "call hold"
-//                CallState.Idle -> "call idle"
-//                CallState.Ringing -> "call ringing"
-//              }
-//            )
-//          }
-//
-//          override fun onIncomingCall(from: String) {
-//            callState.add("incoming call : $from")
-//            Log.e("TAG", "cobacall onIncomingCall: $from")
-//          }
-//        }
-//      }
-
       DisposableEffect(Unit) {
         VoipSdk.register(username = username, password = password, domain = domain)
         Log.e("TAG", "cobacall : DisposableEffect init & register")
@@ -398,7 +347,7 @@ class CallActivity : ComponentActivity() {
           })
 
         if (showSpeakerDialog) {
-          val listSpeaker = VoipSdk.getSpeakerOutput()
+          val listSpeaker = VoipSdk.getSpeakerOutput().filter { it in listOf(2, 3, 4, 9, 10) }
           Dialog(onDismissRequest = {
             showSpeakerDialog = false
           }, content = {
@@ -751,7 +700,7 @@ fun RoundIconButton(
   }
 }
 
-//
+
 @Composable
 @Preview
 fun DefaultPreview() {
