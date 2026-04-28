@@ -1,6 +1,10 @@
 package com.neo.voip_sdk.phone
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Build
 import android.util.Log
 import com.neo.voip_sdk.CallState
 import com.neo.voip_sdk.RegistrationState
@@ -8,10 +12,7 @@ import com.neo.voip_sdk.SipEngine
 import com.neo.voip_sdk.SipEngineListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.linphone.core.AudioDevice
 import org.linphone.core.Call
 import org.linphone.core.Core
@@ -27,17 +28,18 @@ internal class LinphoneManager(
 ) : SipEngine {
   companion object {
     private const val EARPIECE_OUTPUT = 2
+    private const val SPEAKER_OUTPUT = 3
     private const val AUDIO_ROUTE_RETRY_COUNT = 6
     private const val AUDIO_ROUTE_RETRY_DELAY_MS = 250L
   }
 
+  private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+  private var focusRequest: AudioFocusRequest? = null
+
   private val factory = Factory.instance()
-  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   private lateinit var core: Core
   private var currentCall: Call? = null
   private var listener: SipEngineListener? = null
-  private var preferredOutput = EARPIECE_OUTPUT
-  private var audioRouteRetryJob: Job? = null
 
   override fun setListener(listener: SipEngineListener) {
     this.listener = listener
@@ -116,32 +118,75 @@ internal class LinphoneManager(
     currentCall = null
   }
 
-  override fun startCall(destination: String) {
+  private fun requestAudioFocus() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      val playbackAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+        .build()
+
+      focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+        .setAudioAttributes(playbackAttributes)
+        .setAcceptsDelayedFocusGain(true)
+        .setOnAudioFocusChangeListener { }
+        .build()
+
+      focusRequest?.let { audioManager.requestAudioFocus(it) }
+    } else {
+      @Suppress("DEPRECATION")
+      audioManager.requestAudioFocus(
+        { },
+        AudioManager.STREAM_VOICE_CALL,
+        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+      )
+    }
+  }
+
+  private fun abandonAudioFocus() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+    } else {
+      @Suppress("DEPRECATION")
+      audioManager.abandonAudioFocus { }
+    }
+  }
+
+  private fun startAudioComm() {
+    requestAudioFocus()
+    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+    Log.d("TAG", "cobacall : startAudioComm mode=${audioManager.mode} speaker=${audioManager.isSpeakerphoneOn}")
+  }
+
+  private fun stopAudioComm() {
+    audioManager.mode = AudioManager.MODE_NORMAL
+    audioManager.isSpeakerphoneOn = false
+    abandonAudioFocus()
+    Log.d("TAG", "cobacall : stopAudioComm mode reset to NORMAL")
+  }
+
+  override fun startCall(destination: String, phoneId: String?) {
     if (currentCall != null) return
 
-    preferredOutput = EARPIECE_OUTPUT
-    applyPreferredAudioRoute()
+    startAudioComm()
+    applyPreferredAudioRoute(EARPIECE_OUTPUT)
 
     val address = factory.createAddress(destination)
     address?.let { address ->
-      // We also need a CallParams object
-      // Create call params expects a Call object for incoming calls, but for outgoing we must use null safely
       val params = core.createCallParams(null)
-      params ?: return // Same for params
+      params ?: return
 
-      // We can now configure it
-      // Here we ask for no encryption but we could ask for ZRTP/SRTP/DTLS
       params.mediaEncryption = MediaEncryption.None
-      // If we wanted to start the call with video directly
-      //params.enableVideo(true)
 
-      // Finally we start the call
-      // Call process can be followed in onCallStateChanged callback from core listener
+      phoneId?.let {
+        params.addCustomHeader("X-Telphone_ID", it)
+      }
+
       currentCall = core.inviteAddressWithParams(address, params)
     }
   }
 
   override fun acceptCall() {
+    startAudioComm()
     currentCall?.accept()
   }
 
@@ -150,7 +195,6 @@ internal class LinphoneManager(
   }
 
   override fun endCall() {
-    stopAudioRouteRetry()
     currentCall?.terminate()
     currentCall = null
   }
@@ -162,9 +206,8 @@ internal class LinphoneManager(
   }
 
   override fun toggleSpeaker(output: Int) {
-    stopAudioRouteRetry()
-    preferredOutput = output
-    applyPreferredAudioRoute()
+    audioManager.isSpeakerphoneOn = (output == SPEAKER_OUTPUT)
+    applyPreferredAudioRoute(output)
   }
 
   override fun getSpeakerOutput(): List<Int> {
@@ -175,7 +218,7 @@ internal class LinphoneManager(
     if (!::core.isInitialized) return
 
     try {
-      stopAudioRouteRetry()
+      stopAudioComm()
       currentCall?.terminate()
       currentCall = null
 
@@ -194,37 +237,20 @@ internal class LinphoneManager(
     }
   }
 
-  private fun applyPreferredAudioRoute() {
+  private fun applyPreferredAudioRoute(output : Int) {
     val audioDevice = core.audioDevices.firstOrNull {
-      it.type.toInt() == preferredOutput
+      it.type.toInt() == output
     } ?: core.audioDevices.firstOrNull {
       it.type == AudioDevice.Type.Earpiece
     }
 
     if (audioDevice == null) {
-      Log.w("TAG", "cobacall : no audio device found for output=$preferredOutput")
+      Log.w("TAG", "cobacall : no audio device found for output=$output")
       return
     }
 
     core.outputAudioDevice = audioDevice
     Log.d("TAG", "cobacall : output audio device=${audioDevice.type.name}")
-  }
-
-  private fun retryPreferredAudioRoute() {
-    if (preferredOutput != EARPIECE_OUTPUT) return
-
-    audioRouteRetryJob?.cancel()
-    audioRouteRetryJob = scope.launch {
-      repeat(AUDIO_ROUTE_RETRY_COUNT) {
-        delay(AUDIO_ROUTE_RETRY_DELAY_MS)
-        applyPreferredAudioRoute()
-      }
-    }
-  }
-
-  private fun stopAudioRouteRetry() {
-    audioRouteRetryJob?.cancel()
-    audioRouteRetryJob = null
   }
 
   private val coreListener =
@@ -245,8 +271,18 @@ internal class LinphoneManager(
           org.linphone.core.RegistrationState.Failed ->
             listener?.onRegistration(RegistrationState.Failed(message))
 
-          else ->
-            listener?.onRegistration(RegistrationState.Registering)
+          org.linphone.core.RegistrationState.None ->
+            listener?.onRegistration(RegistrationState.None)
+
+          org.linphone.core.RegistrationState.Refreshing ->
+            listener?.onRegistration(RegistrationState.Refreshing)
+
+          org.linphone.core.RegistrationState.Cleared ->
+            listener?.onRegistration(RegistrationState.Cleared)
+
+          org.linphone.core.RegistrationState.Progress ->
+            listener?.onRegistration(RegistrationState.Progress)
+
         }
       }
 
@@ -264,44 +300,43 @@ internal class LinphoneManager(
 
           Call.State.OutgoingInit ->
             run {
-              applyPreferredAudioRoute()
+              startAudioComm()
               listener?.onCallState(CallState.Calling)
             }
 
           Call.State.OutgoingProgress -> {
-            applyPreferredAudioRoute()
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
             listener?.onCallState(CallState.Ringing)
           }
 
           Call.State.OutgoingRinging -> {
-            applyPreferredAudioRoute()
-            retryPreferredAudioRoute()
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
             listener?.onCallState(CallState.Ringing)
           }
 
-          Call.State.IncomingReceived ->
+          Call.State.IncomingReceived -> {
+            // Kita tidak memanggil startAudioComm di sini agar tidak mengambil focus sebelum user angkat
             listener?.onIncomingCall(
               call.remoteAddress.asStringUriOnly()
             )
+          }
 
           Call.State.StreamsRunning -> {
-            stopAudioRouteRetry()
-            applyPreferredAudioRoute()
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
             listener?.onCallState(CallState.Active)
           }
 
           Call.State.End,
-          Call.State.Released -> {
-            stopAudioRouteRetry()
+          Call.State.Released,
+            -> {
+            stopAudioComm()
             currentCall = null
-            preferredOutput = EARPIECE_OUTPUT
             listener?.onCallState(CallState.Disconnected)
           }
 
           Call.State.Error -> {
-            stopAudioRouteRetry()
+            stopAudioComm()
             currentCall = null
-            preferredOutput = EARPIECE_OUTPUT
             listener?.onCallState(CallState.Error(message))
           }
 

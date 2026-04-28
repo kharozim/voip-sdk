@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -49,7 +48,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,7 +59,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -82,23 +79,22 @@ import com.neo.voip_sdk.icons.SpeakerHeadphone
 import com.neo.voip_sdk.service.NeoCallService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import kotlin.collections.get
 
 class CallActivity : ComponentActivity() {
 
-  var callerName: String = ""
-  var callerAvatar: String = ""
-  var calleeName: String = ""
-  var calleeAvatar: String = ""
-  var callType: String = ""
-  var username: String = ""
-  var password: String = ""
-  var domain: String = ""
-  var destination: String = ""
+  private var callerName: String = ""
+  private var callerAvatar: String = ""
+  private var calleeName: String = ""
+  private var calleeAvatar: String = ""
+  private var callType: String = ""
+  private var username: String = ""
+  private var password: String = ""
+  private var domain: String = ""
+  private var destination: String = ""
   private val currentCallDurationSeconds = MutableStateFlow(0L)
   private val lastCallDurationSeconds = MutableStateFlow(0L)
   private var callService: NeoCallService? = null
-  var metaData: HashMap<*, *> = hashMapOf(
+  private var metaData: HashMap<String, String> = hashMapOf(
     "call_title" to "Free Call",
     "call_busy" to "The customer is busy and cannot be reached",
     "call_calling" to "Calling...",
@@ -110,64 +106,15 @@ class CallActivity : ComponentActivity() {
     "call_temporarily_unavailable" to "Currently unreachable",
     "call_lost_connection" to "Connection lost",
     "call_weak_signal" to "Weak Signal",
-    //"call_name_title" to "Xanh SM Customer",
     "call_btn_message" to "Send Message",
     "call_btn_mute" to "Mute",
     "call_btn_speaker" to "Speaker",
-    "call_failed_api" to "Call failed due to system error",
-    "call_failed_no_connection" to "No internet connection",
-    "call_feedback_bad" to "Bad experience",
-    "call_feedback_bad_driver_cannot_hear" to "Driver couldn't hear me",
-    "call_feedback_bad_lost_connection" to "Call was disconnected",
-    "call_feedback_bad_noisy" to "Too much background noise",
-    "call_feedback_bad_unstable_connection" to "Unstable connection",
-    "call_feedback_btn_submit" to "Submit Feedback",
-    "call_feedback_desc_content" to "Help us improve by sharing your experience",
-    "call_feedback_desc_title" to "Tell us about your call experience",
-    "call_feedback_good" to "Good experience",
-    "call_feedback_good_connection" to "Good connection",
-    "call_feedback_good_no_delay" to "No audio delay",
-    "call_feedback_good_sound" to "Clear sound quality",
-    "call_feedback_okay" to "Okay",
-    "call_feedback_okay_delay" to "Audio was delayed",
-    "call_feedback_okay_flickering_sound" to "Audio was flickering",
-    "call_feedback_okay_small_sound" to "Sound was too low",
-    "call_feedback_skip" to "Skip feedback",
-    "call_feedback_title" to "Call Feedback",
-    "call_option_btn_free_call" to "Free Call",
-    "call_option_title" to "Call Options",
-    "call_permission_btn_allow" to "Allow",
-    "call_permission_btn_deny" to "Deny",
-    "call_permission_btn_setting" to "Go to Settings",
-    "call_permission_btn_skip" to "Skip",
-    "call_permission_microphone_content" to "We need access to your microphone to make calls",
-    "call_permission_microphone_demied_content" to "Please enable microphone access in your phone’s Settings",
-    "call_permission_microphone_demied_title" to "Microphone access is required to make a call",
-    "call_permission_microphone_title" to "Microphone Permission",
-    "call_status_call_customer" to "Calling customer",
-    "call_status_call_customer_no_answer" to "Customer did not answer",
-    "call_status_call_customer_refused" to "Customer refused the call",
-    "call_status_call_driver" to "Calling driver",
-    "call_status_call_driver_cancelled" to "Driver cancelled the call",
-    "call_status_call_driver_no_answer" to "Driver did not answer",
-    "call_status_call_driver_refused" to "Driver refused the call",
-    "call_status_call_from_customer" to "Incoming call from customer",
-    "call_status_call_from_customer_miss" to "Missed call from customer",
-    "call_status_call_from_driver" to "Incoming call from driver",
-    "call_status_call_from_driver_miss" to "Missed call from driver",
-    "call_status_call_guide_again" to "Please try calling again",
-    "call_status_call_guide_back" to "Please return to the app to continue the call",
-    "call_suggestion_btn_dial" to "Dial",
-    "call_suggestion_btn_free_call" to "Call for Free",
-    "call_suggestion_btn_message" to "Send a Message",
-    "call_suggestion_desc_travelling" to "The user might be traveling",
-    "call_suggestion_desc_try_again" to "Try calling again in a moment",
   )
   private var bound = false
   private val callServiceConnection = object : ServiceConnection {
     override fun onServiceConnected(p0: ComponentName?, binder: IBinder?) {
-      val binder = binder as? NeoCallService.LocalBinder ?: return
-      callService = binder.getService()
+      val serviceBinder = binder as? NeoCallService.LocalBinder ?: return
+      callService = serviceBinder.getService()
       bound = true
       currentCallDurationSeconds.value = callService?.getCurrentDurationSeconds() ?: 0L
       lastCallDurationSeconds.value = callService?.getLastCallDurationSeconds() ?: 0L
@@ -217,36 +164,36 @@ class CallActivity : ComponentActivity() {
     domain = intent.getStringExtra("domain").orEmpty()
     destination = intent.getStringExtra("destination").orEmpty()
 
-    metaData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      val extra = intent.getSerializableExtra("meta_data", HashMap::class.java)?.mapNotNull {
-        val key = it.key as? String
-        val value = it.value as? String
-        if (key != null && value != null) key to value else null
-      }?.toMap() ?: emptyMap()
-      HashMap(metaData + extra)
+    val extraMeta = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      intent.getSerializableExtra("meta_data", HashMap::class.java) as? HashMap<String, String>
     } else {
-      val extra = (intent.getSerializableExtra("meta_data") as? HashMap<*, *>)?.mapNotNull {
-        val key = it.key as? String
-        val value = it.value as? String
-        if (key != null && value != null) key to value else null
-      }?.toMap() ?: emptyMap()
-      HashMap(metaData + extra)
-    }
+      @Suppress("UNCHECKED_CAST")
+      intent.getSerializableExtra("meta_data") as? HashMap<String, String>
+    } ?: emptyMap()
 
+    metaData.putAll(extraMeta)
 
-    lifecycleScope.launch {
-      val serviceIntent = buildCallServiceIntent(NeoCallService.Action.OUTGOING).also {
-        Log.d("SDK Call", "OUTGOING: start service")
-        bindService(it, callServiceConnection, BIND_AUTO_CREATE)
+    if (savedInstanceState == null) {
+      VoipSdk.initialize(SipEngine.build(this))
+      VoipSdk.register(username = username, password = password, domain = domain)
+      Log.e("TAG", "cobacall : Initial Registration")
+
+      lifecycleScope.launch {
+        val serviceIntent = buildCallServiceIntent(NeoCallService.Action.OUTGOING).also {
+          Log.d("SDK Call", "OUTGOING: start service")
+          bindService(it, callServiceConnection, BIND_AUTO_CREATE)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          startForegroundService(serviceIntent)
+        } else {
+          startService(serviceIntent)
+        }
       }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        startForegroundService(serviceIntent)
-      } else {
-        startService(serviceIntent)
-      }
+    } else {
+      // Re-bind service if activity recreated
+      val serviceIntent = buildCallServiceIntent(NeoCallService.Action.OUTGOING)
+      bindService(serviceIntent, callServiceConnection, BIND_AUTO_CREATE)
     }
-
-    VoipSdk.initialize(SipEngine.build(this))
 
     enableEdgeToEdge()
     setContent {
@@ -255,7 +202,6 @@ class CallActivity : ComponentActivity() {
       var isMicMuted by remember { mutableStateOf(false) }
       var speakerOutput by remember { mutableIntStateOf(0) }
       var callStatusRaw by remember { mutableStateOf("") }
-      val connectionState by remember { mutableStateOf("") }
       var showErrorDialog by remember { mutableStateOf(false) }
       var showSpeakerDialog by remember { mutableStateOf(false) }
       val registrationState by VoipSdk.observeRegistrationState().collectAsState()
@@ -264,29 +210,40 @@ class CallActivity : ComponentActivity() {
       var loadingMessage by remember { mutableStateOf<String?>(null) }
       var showLoading by remember { mutableStateOf(false) }
 
-      SetSystemBarAppearance(isLight = true)
+      SetSystemBarAppearance(true)
+
       LaunchedEffect(registrationState) {
         when (val state = registrationState) {
           is RegistrationState.Failed -> {
-            errorMessage = "registration failed : ${state.message}"
-            showErrorDialog = true
+            // Hanya tampilkan error jika tidak ada panggilan aktif
+            if (callState == CallState.Idle) {
+              errorMessage = "Registration failed: ${state.message}"
+              showErrorDialog = true
+            }
             showLoading = false
-          }
-
-          RegistrationState.None -> {
+            Log.e("TAG", "cobacall : Registration Failed")
           }
 
           RegistrationState.Registered -> {
-//            callStatusRaw = "registered"
-            VoipSdk.startCall("sip:$destination@$domain")
+            if (callState == CallState.Idle) {
+              val phoneId: String? = metaData["phone_id"]
+              VoipSdk.startCall("sip:$destination@$domain", phoneId)
+            }
             showLoading = false
+            Log.e("TAG", "cobacall : registered")
           }
 
-          RegistrationState.Registering -> {
-//            callStatusRaw = "registering"
-            loadingMessage = "Registering..."
-            showLoading = true
+          RegistrationState.Progress, RegistrationState.Refreshing -> {
+            // Hanya tampilkan loading jika belum dalam panggilan
+            if (callState == CallState.Idle) {
+              loadingMessage = "Registering..."
+              showLoading = true
+            } else {
+              showLoading = false
+            }
           }
+
+          else -> showLoading = false
         }
       }
 
@@ -298,54 +255,29 @@ class CallActivity : ComponentActivity() {
             startService(buildCallServiceIntent(NeoCallService.Action.ONGOING))
           }
 
-          CallState.Calling -> {
-            callStatusRaw = "calling"
-          }
-
-          CallState.Connected -> {
-            callStatusRaw = "connect"
-          }
+          CallState.Calling -> callStatusRaw = "calling"
+          CallState.Connected -> callStatusRaw = "connect"
+          CallState.Ringing -> callStatusRaw = "ringging"
+          CallState.Hold -> callStatusRaw = "hold"
+          CallState.Idle -> callStatusRaw = "idle"
 
           CallState.Disconnected -> {
             callStatusRaw = "disconnected"
             lastCallDurationSeconds.value =
               callService?.getLastCallDurationSeconds()?.takeIf { it > 0 } ?: timeTicker
             stopCallService()
+            Log.e("TAG", "cobacall : Disconnected")
           }
 
           is CallState.Error -> {
             callStatusRaw = "error"
             lastCallDurationSeconds.value =
               callService?.getLastCallDurationSeconds()?.takeIf { it > 0 } ?: timeTicker
-            stopCallService()
-            errorMessage = "call error ${state.reason}"
+            errorMessage = "Call error ${state.reason}"
             showErrorDialog = true
+            stopCallService()
+            Log.e("TAG", "cobacall : Error")
           }
-
-          CallState.Hold -> {
-            callStatusRaw = "hold"
-          }
-
-          CallState.Idle -> {
-            callStatusRaw = "idle"
-          }
-
-          CallState.Ringing -> {
-            callStatusRaw = "ringging"
-          }
-        }
-      }
-
-      DisposableEffect(Unit) {
-        VoipSdk.register(username = username, password = password, domain = domain)
-        Log.e("TAG", "cobacall : DisposableEffect init & register")
-
-        onDispose {
-          callService?.setOnTickerUpdateListener(null)
-          stopCallService()
-          VoipSdk.destroy()
-          Log.e("TAG", "cobacall : onDispose destroy")
-
         }
       }
 
@@ -354,7 +286,7 @@ class CallActivity : ComponentActivity() {
         callStatusRaw in listOf("disconnected", "error") && lastTicker > 0L ->
           "Call duration ${formatElapsedTime(lastTicker)}"
 
-        else -> (metaData["call_$callStatusRaw"] ?: callStatusRaw).toString()
+        else -> (metaData["call_$callStatusRaw"] ?: callStatusRaw)
       }
 
       MaterialTheme {
@@ -362,26 +294,18 @@ class CallActivity : ComponentActivity() {
           callerName = if (callType == "incoming") callerName else calleeName,
           callTimer = callTimerText,
           callStatusRaw = callStatusRaw,
-          signalState = if (connectionState == "active") "" else connectionState,
+          signalState = "",
           avatarUrl = if (callType == "incoming") callerAvatar else calleeAvatar,
           isMicMuted = isMicMuted,
           speakerOutput = speakerOutput,
-          metaData = metaData.mapKeys { it.key.toString() }.mapValues { it.value.toString() },
+          metaData = metaData,
           onMuteClick = {
             isMicMuted = !isMicMuted
             VoipSdk.toggleMute()
           },
-          onSpeakerClick = {
-            showSpeakerDialog = true
-          },
-          onNumpadClick = {
-//            callService?.sendDTMF(it)
-            // TODO: set click numpad
-          },
-          onAnswerCallClick = {
-//            answer()
-            // TODO: answerclick
-          },
+          onSpeakerClick = { showSpeakerDialog = true },
+          onNumpadClick = { /* TODO */ },
+          onAnswerCallClick = { /* TODO */ },
           onEndCallClick = {
             if (callStatusRaw in listOf("disconnected", "error", "idle")) {
               finish()
@@ -391,14 +315,12 @@ class CallActivity : ComponentActivity() {
           })
 
         if (showLoading) {
-          Loading(message = loadingMessage.orEmpty(), onDismissRequest = {})
+          Loading(message = loadingMessage.orEmpty(), onDismissRequest = { showLoading = false })
         }
 
         if (showSpeakerDialog) {
           val listSpeaker = VoipSdk.getSpeakerOutput().filter { it in listOf(2, 3, 4, 9, 10) }
-          Dialog(onDismissRequest = {
-            showSpeakerDialog = false
-          }, content = {
+          Dialog(onDismissRequest = { showSpeakerDialog = false }) {
             Column(
               Modifier
                 .fillMaxWidth()
@@ -406,14 +328,12 @@ class CallActivity : ComponentActivity() {
             ) {
               listSpeaker.forEach {
                 Text(
-                  when (it) {
-                    0 -> "Unknown"
-                    1 -> "Microphone"
+                  text = when (it) {
                     2 -> "Earpiece"
                     3 -> "Speaker"
                     4 -> "Bluetooth"
-                    9, 10 -> "HeadSet"
-                    else -> "$it Tidak terdaftar"
+                    9, 10 -> "Headset"
+                    else -> "Output $it"
                   },
                   modifier = Modifier
                     .fillMaxWidth()
@@ -422,11 +342,11 @@ class CallActivity : ComponentActivity() {
                       VoipSdk.toggleSpeaker(it)
                       speakerOutput = it
                     }
-                    .padding(vertical = 8.dp, horizontal = 16.dp)
+                    .padding(16.dp)
                 )
               }
             }
-          })
+          }
         }
 
         if (showErrorDialog) {
@@ -434,9 +354,6 @@ class CallActivity : ComponentActivity() {
             onDismiss = {
               showErrorDialog = false
               VoipSdk.endCall()
-              VoipSdk.logout()
-              stopCallService()
-              VoipSdk.destroy()
               finish()
             },
             message = errorMessage
@@ -446,8 +363,16 @@ class CallActivity : ComponentActivity() {
     }
   }
 
-  private fun showToast(string: String) {
-    Toast.makeText(this, string, Toast.LENGTH_SHORT).show()
+  override fun onDestroy() {
+    if (bound) {
+      unbindService(callServiceConnection)
+      bound = false
+    }
+    // Hanya panggil destroy jika activity benar-benar selesai (bukan konfigurasi berubah)
+    if (isFinishing) {
+      VoipSdk.destroy()
+    }
+    super.onDestroy()
   }
 
   @SuppressLint("DefaultLocale")
@@ -461,7 +386,7 @@ class CallActivity : ComponentActivity() {
 @Composable
 fun CallScreen(
   callerName: String,
-  callTimer: Any,
+  callTimer: String,
   callStatusRaw: String,
   signalState: String,
   avatarUrl: String,
@@ -476,13 +401,7 @@ fun CallScreen(
 ) {
   var showDialPad by rememberSaveable { mutableStateOf(false) }
 
-  BackHandler {
-    if (showDialPad) {
-      showDialPad = false
-    } else {
-
-    }
-  }
+  BackHandler(showDialPad) { showDialPad = false }
 
   Scaffold(
     modifier = Modifier
@@ -491,7 +410,6 @@ fun CallScreen(
   ) { padding ->
     Box {
       MultiLayerGradientBackground()
-
       Column(
         modifier = Modifier
           .padding(padding)
@@ -505,37 +423,20 @@ fun CallScreen(
             text = metaData["call_title"] ?: "Free Call",
             style = MaterialTheme.typography.headlineSmall
           )
-
           Spacer(modifier = Modifier.height(60.dp))
         }
 
-        // Avatar
-        Row(
-          horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()
-        ) {
-          Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-          ) {
-
-            Text(text = callTimer as String, style = MaterialTheme.typography.bodyLarge)
-            Spacer(modifier = Modifier.height(55.dp))
-            CallAvatar(avatarUrl)
-            Spacer(modifier = Modifier.height(35.dp))
-
-            Text(
-              text = if (metaData["call_name_title"]?.isBlank() == true) callerName else metaData["call_name_title"]
-                ?: callerName, style = MaterialTheme.typography.headlineSmall
-            )
-            Spacer(modifier = Modifier.height(15.dp))
-            Text(
-              text = metaData[signalState] ?: signalState, // ->status network
-              style = MaterialTheme.typography.bodyMedium, color = Color.Red
-            )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+          Text(text = callTimer, style = MaterialTheme.typography.bodyLarge)
+          Spacer(modifier = Modifier.height(55.dp))
+          CallAvatar(avatarUrl)
+          Spacer(modifier = Modifier.height(35.dp))
+          Text(text = callerName, style = MaterialTheme.typography.headlineSmall)
+          if (signalState.isNotEmpty()) {
+            Text(text = signalState, color = Color.Red, style = MaterialTheme.typography.bodyMedium)
           }
         }
-        Spacer(modifier = Modifier.height(10.dp))
 
-        //
         Row(
           horizontalArrangement = Arrangement.SpaceBetween,
           modifier = Modifier
@@ -545,26 +446,22 @@ fun CallScreen(
         ) {
           RoundIconButton(
             icon = when (speakerOutput) {
-              0, 2, 3 -> Icons.AutoMirrored.Outlined.VolumeUp
               4 -> SpeakerBluetooth
               9, 10 -> SpeakerHeadphone
               else -> Icons.AutoMirrored.Outlined.VolumeUp
             },
-
             label = metaData["call_btn_speaker"] ?: "Speaker",
             onClick = onSpeakerClick,
             backgroundColor = if (speakerOutput == 3) Color(0xFF00BABD) else Color(0xFFE9F8F9),
-            iconTint = if (speakerOutput == 3) Color.White else Color(0xFF17666A),
-            enabled = callStatusRaw.lowercase() != "ended"
+            iconTint = if (speakerOutput == 3) Color.White else Color(0xFF17666A)
           )
 
           RoundIconButton(
             icon = Icons.Filled.Dialpad,
             label = metaData["call_numpad"] ?: "Numpad",
             onClick = { showDialPad = true },
-            backgroundColor = Color(0xFFE9F8F9),
-            iconTint = Color(0xFF17666A),
-            enabled = callStatusRaw.lowercase() == "connected"
+//            enabled = callStatusRaw == "active" || callStatusRaw == "connect"
+            enabled = false
           )
 
           RoundIconButton(
@@ -573,46 +470,36 @@ fun CallScreen(
             onClick = onMuteClick,
             backgroundColor = if (isMicMuted) Color(0xFF00BABD) else Color(0xFFE9F8F9),
             iconTint = if (isMicMuted) Color.White else Color(0xFF17666A),
-            enabled = callStatusRaw.lowercase() == "connected"
+            enabled = callStatusRaw == "active" || callStatusRaw == "connect"
           )
-
-          //                if (callStatusRaw.lowercase() == "incoming") {
-          //                    RoundIconButton(
-          //                        icon = Icons.AutoMirrored.Outlined.Chat,
-          //                        label = metaData["call_btn_message"] ?: "Message",
-          //                        onClick = onMessageClick,
-          //                        backgroundColor = Color(0xFFE9F8F9),
-          //                        iconTint = Color(0xFF17666A),
-          //                    )
-          //                }
         }
+
         Row(
-          horizontalArrangement = Arrangement.Center,
           modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 55.dp)
+            .padding(bottom = 55.dp),
+          horizontalArrangement = Arrangement.Center
         ) {
-
           RoundIconButton(
             icon = Icons.Filled.Close,
             label = "",
             onClick = onEndCallClick,
             backgroundColor = Color.Red,
-            iconTint = Color.White,
-            enabled = callStatusRaw.lowercase() != "ended"
+            iconTint = Color.White
           )
-          if (callStatusRaw.lowercase() == "incoming") {
-            Spacer(modifier = Modifier.width(160.dp))
+          if (callStatusRaw == "incoming") {
+            Spacer(modifier = Modifier.width(60.dp))
             RoundIconButton(
               icon = Icons.Default.Phone,
               label = "",
               onClick = onAnswerCallClick,
               backgroundColor = Color.Green,
-              iconTint = Color.White,
+              iconTint = Color.White
             )
           }
         }
       }
+
       AnimatedVisibility(
         visible = showDialPad,
         enter = slideInVertically { it } + fadeIn(),
@@ -620,17 +507,10 @@ fun CallScreen(
         modifier = Modifier
           .fillMaxWidth()
           .zIndex(2f)
-          .align(Alignment.BottomCenter)) {
-
+          .align(Alignment.BottomCenter)
+      ) {
         Surface(tonalElevation = 8.dp) {
-          DialPad(
-            onKeyPress = { digit ->
-              if (digit == "close") {
-                showDialPad = false
-                return@DialPad
-              }
-              onNumpadClick(digit)
-            })
+          DialPad(onKeyPress = { if (it == "close") showDialPad = false else onNumpadClick(it) })
         }
       }
     }
@@ -638,82 +518,55 @@ fun CallScreen(
 }
 
 @Composable
-fun MultiLayerGradientBackground(modifier: Modifier = Modifier) {
-  Box(
-    modifier = modifier.fillMaxSize()
-  ) {
-    // Layer 3: Base horizontal gradient (270deg)
+fun MultiLayerGradientBackground() {
+  Box(modifier = Modifier.fillMaxSize()) {
     Box(
       modifier = Modifier
         .matchParentSize()
         .background(
-          brush = Brush.horizontalGradient(
-            colorStops = arrayOf(
-              0.0f to Color(0xFFFFF4DF), // Left becomes #FFF4DF
-              0.5f to Color(0xFFFFFFFF), 1.0f to Color(0xFFDAFFFF)  // Right becomes #DAFFFF
+          Brush.horizontalGradient(
+            listOf(
+              Color(0xFFFFF4DF),
+              Color(0xFFFFFFFF),
+              Color(0xFFDAFFFF)
             )
           )
         )
     )
-
-    // Layer 2: Vertical fade (180deg)
     Box(
       modifier = Modifier
         .matchParentSize()
-        .background(
-          brush = Brush.verticalGradient(
-            colorStops = arrayOf(
-              0.3167f to Color(0x00F6F6F6), // transparent
-              1.0f to Color(0xFFF6F6F6)
-            )
-          )
-        )
-    )
-
-    // Layer 1: Diagonal fade (224.7deg ≈ ~45° flip)
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .background(
-          brush = Brush.linearGradient(
-            colorStops = arrayOf(
-              0.3943f to Color(0x00DFEFFF), // transparent
-              1.0f to Color(0xFFEBFFFF)
-            ), start = Offset.Infinite, end = Offset.Zero
-          )
-        )
+        .background(Brush.verticalGradient(listOf(Color(0x00F6F6F6), Color(0xFFF6F6F6))))
     )
   }
 }
 
 @Composable
 fun CallAvatar(imageUrl: String?) {
-  if (imageUrl.isNullOrBlank()) {
-    // Tampilkan icon orang jika URL kosong
-    Box(
-      modifier = Modifier
-        .size(160.dp)
-        .clip(CircleShape)
-        .background(Color.LightGray),
-      contentAlignment = Alignment.Center
-    ) {
+  Box(
+    modifier = Modifier
+      .size(160.dp)
+      .clip(CircleShape)
+      .background(Color.LightGray),
+    contentAlignment = Alignment.Center
+  ) {
+    if (imageUrl.isNullOrBlank()) {
       Icon(
-        imageVector = Icons.Default.Person,
-        contentDescription = "Default Avatar",
+        Icons.Default.Person,
+        contentDescription = null,
         tint = Color.White,
         modifier = Modifier.size(80.dp)
       )
+    } else {
+      AsyncImage(
+        model = imageUrl,
+        contentDescription = null,
+        modifier = Modifier
+          .fillMaxSize()
+          .clip(CircleShape)
+          .border(2.dp, Color.Gray, CircleShape)
+      )
     }
-  } else {
-    // Tampilkan gambar dari URL
-    AsyncImage(
-      model = imageUrl,
-      contentDescription = "Caller Avatar",
-      modifier = Modifier
-        .size(160.dp)
-        .clip(CircleShape)
-        .border(2.dp, Color.Gray, CircleShape)
-    )
   }
 }
 
@@ -722,28 +575,26 @@ fun RoundIconButton(
   icon: ImageVector,
   label: String,
   onClick: () -> Unit,
-  backgroundColor: Color = Color.LightGray,
-  iconTint: Color = Color.Black,
+  backgroundColor: Color = Color(0xFFE9F8F9),
+  iconTint: Color = Color(0xFF17666A),
   enabled: Boolean = true,
 ) {
-  val actualBackground = if (enabled) backgroundColor else backgroundColor.copy(alpha = 0.4f)
-  val actualTint = if (enabled) iconTint else iconTint.copy(alpha = 0.6f)
-  val textColor = Color(0XFF7F7F7F)
-  val actualText = if (enabled) textColor else textColor.copy(alpha = 0.6f)
-
   Column(horizontalAlignment = Alignment.CenterHorizontally) {
     Box(
-      modifier = Modifier.size(64.dp).clip(CircleShape).background(actualBackground).let {
-        if (enabled) it.clickable(onClick = onClick) else it
-      }, contentAlignment = Alignment.Center
+      modifier = Modifier
+        .size(64.dp)
+        .clip(CircleShape)
+        .background(if (enabled) backgroundColor else backgroundColor.copy(0.4f))
+        .clickable(enabled = enabled, onClick = onClick),
+      contentAlignment = Alignment.Center
     ) {
-      Icon(imageVector = icon, contentDescription = label, tint = actualTint)
+      Icon(icon, contentDescription = label, tint = if (enabled) iconTint else iconTint.copy(0.4f))
     }
-
     if (label.isNotBlank()) {
-      Spacer(modifier = Modifier.height(4.dp))
       Text(
-        text = label, style = MaterialTheme.typography.bodySmall, color = actualText
+        text = label,
+        style = MaterialTheme.typography.bodySmall,
+        color = if (enabled) Color.Gray else Color.Gray.copy(0.4f)
       )
     }
   }
@@ -751,24 +602,15 @@ fun RoundIconButton(
 
 @Composable
 private fun Loading(message: String, onDismissRequest: () -> Unit) {
-  MaterialTheme() {
-    Dialog(
-      onDismissRequest = onDismissRequest
+  Dialog(onDismissRequest = onDismissRequest) {
+    Column(
+      horizontalAlignment = Alignment.CenterHorizontally,
+      modifier = Modifier
+        .background(Color.White, RoundedCornerShape(12.dp))
+        .padding(24.dp)
     ) {
-      Column(
-        horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier
-          .background(
-            Color.White,
-            RoundedCornerShape(12.dp)
-          )
-          .padding(vertical = 12.dp, horizontal = 24.dp)
-      ) {
-        CircularProgressIndicator(
-          modifier = Modifier.size(32.dp),
-        )
-        Text(message, Modifier.padding(top = 8.dp), textAlign = TextAlign.Center)
-      }
-
+      CircularProgressIndicator(modifier = Modifier.size(32.dp))
+      Text(message, Modifier.padding(top = 8.dp), textAlign = TextAlign.Center)
     }
   }
 }
@@ -778,41 +620,3 @@ private fun Loading(message: String, onDismissRequest: () -> Unit) {
 private fun Preview() {
   Loading(message = "Loading...") { }
 }
-
-//@Composable
-//@Preview
-//private fun DefaultPreview() {
-//  val metaData: HashMap<*, *> = hashMapOf(
-//    "initializing" to "Initializing",
-//    "call_title" to "Telpone gratis",
-//    "ringing" to "Ringing",
-//    "connected" to "Connected",
-//    "ended" to "Ended",
-//    "answer" to "Answer",
-//    "decline" to "Decline",
-//    "mute" to "Mute",
-//    "unmute" to "Unmute",
-//    "speaker" to "Speaker",
-//    "phone_speaker" to "Phone Speaker",
-//  )
-//  MaterialTheme {
-//    CallScreen(
-//      callerName = "Driver Andhi",
-//      callTimer = "",
-//      callStatusRaw = "connected",
-//      signalState = "call_lost_connection",
-//      avatarUrl = "",
-//      isMicMuted = false,
-//      speakerOutput = 4,
-//      metaData = metaData.mapKeys { it.key.toString() }.mapValues { it.value.toString() },
-//      onMuteClick = {},
-//      onEndCallClick = {},
-//      onAnswerCallClick = {},
-//      onSpeakerClick = {},
-//      onNumpadClick = {})
-//    ErrorAlertDialog(
-//      onDismiss = {},
-//      message = "networkErrorText"
-//    )
-//  }
-//}

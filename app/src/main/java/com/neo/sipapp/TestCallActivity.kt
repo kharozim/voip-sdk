@@ -88,7 +88,9 @@ fun TestCallScreen() {
               "registered"
             }
 
-            RegistrationState.Registering -> "registering"
+            RegistrationState.Progress -> "registering"
+            RegistrationState.Cleared -> "cleared"
+            RegistrationState.Refreshing -> "refreshing"
           }
         )
       }

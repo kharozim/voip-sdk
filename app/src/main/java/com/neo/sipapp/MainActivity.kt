@@ -76,7 +76,8 @@ class MainActivity : ComponentActivity() {
                       domain = "147.139.193.218:5551",
                       destination = "085600431521",
                       metaData = mapOf(
-                        "call_title" to "Telefon Customer"
+                        "call_title" to "Telefon Customer",
+                        "phone_id" to "111222333"
                       ),
                     )
 

@@ -49,8 +49,8 @@ internal class VoipRepository(
 
     fun logout() = engine.logout()
 
-    fun startCall(dest: String) =
-        engine.startCall(dest)
+    fun startCall(dest: String, phoneId: String? = null) =
+        engine.startCall(dest, phoneId)
 
     fun acceptCall() = engine.acceptCall()
 
