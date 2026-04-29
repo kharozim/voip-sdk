@@ -7,13 +7,11 @@ object VoipSdk {
 
     private lateinit var repository: VoipRepository
     private var sipEngine: SipEngine? = null
-    private var phoneId : String? = null
 
-    fun initialize(engine: SipEngine, phoneId : String? = null) {
+    fun initialize(engine: SipEngine) {
         repository = VoipRepository(engine)
         repository.initialize()
         sipEngine = engine
-        this.phoneId = phoneId
     }
 
     fun register(username: String, password: String, domain: String) =

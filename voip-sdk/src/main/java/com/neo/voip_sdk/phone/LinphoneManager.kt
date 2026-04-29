@@ -1,11 +1,14 @@
 package com.neo.voip_sdk.phone
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Build
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.neo.voip_sdk.CallState
 import com.neo.voip_sdk.RegistrationState
 import com.neo.voip_sdk.SipEngine
@@ -77,7 +80,30 @@ internal class LinphoneManager(
     isInitialized = true
   }
 
+  private fun ensureRequiredPermissions() {
+    val requiredPermissions = listOf(
+      Manifest.permission.INTERNET,
+      Manifest.permission.ACCESS_NETWORK_STATE,
+      Manifest.permission.RECORD_AUDIO,
+      Manifest.permission.WAKE_LOCK,
+    )
+
+    val missingPermissions = requiredPermissions.filter { permission ->
+      ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED
+    }
+
+    if (missingPermissions.isNotEmpty()) {
+      throw IllegalStateException(
+        "Missing required Android permissions for VoIP SDK initialization: " +
+          missingPermissions.joinToString() +
+          ". Ensure the host application's merged manifest includes these permissions. " +
+          "WAKE_LOCK is required by Linphone during core initialization."
+      )
+    }
+  }
+
   override fun register(username: String, password: String, domain: String) {
+//    ensureRequiredPermissions()
 
     val authInfo = factory.createAuthInfo(
       username,

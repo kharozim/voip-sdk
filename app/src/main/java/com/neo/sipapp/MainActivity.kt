@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
-    CallSdk.init(this)
+//    CallSdk.init(this)
     setContent {
       SIPAppTheme {
         val backStack = remember { mutableStateListOf<Screen>(Screen.Home) }
